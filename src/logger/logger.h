@@ -40,7 +40,23 @@ struct logger {
     /**< the underlying "log_device"s */
     struct log_device logdev_array[LOGGER_MAX_LOGDEV_NUM];
     int logdev_num;
+    char prefix[64];
 };
+
+/**
+ * @brief set the prefix of the following log the logger will write
+ * 
+ * @return a status code indicating whether it succeeded or what error 
+ * occured
+*/
+int logger_set_prefix(struct logger *lggr, const char *prefix);
+
+/**
+ * @brief add one more "log_device" 
+ * 
+ * @return a status code indicating whether it succeeded or what error 
+ * occured
+*/
 
 /**
  * @brief just like std printf, but write log to each "log_dev" belonging to

@@ -1,9 +1,9 @@
 #pragma once 
 
 /**
- * @file log_device.h
- * @brief "log_device" abstract out the interfaces a device should support to 
- * be a possible underlying logging device for "logger".s
+ * @file esi_logdev.h
+ * @brief "esi_logdev" abstract out the interfaces a device should support to 
+ * be a possible underlying logging device for "esi_logger"s
  * 
  * To provide an concrete implementation conforming this interface, a factory, 
  * a finalizer, a write method, and a config method should be provided. It's 
@@ -14,14 +14,14 @@
  * @date 2023.05.16
 */
 
-struct log_device_ops {
+struct esi_logdev_ops {
     /**
      * @brief write "msg" to "logdev"
      * 
      * @return a status code indicating whether it succeeded or what error 
      * occured
     */
-    int (*write)(struct log_device *logdev, const char *msg);
+    int (*write)(struct esi_logdev *logdev, const char *msg);
 
     /**
      * @brief configure possible options of "logdev"
@@ -30,7 +30,7 @@ struct log_device_ops {
      * @return a status code indicating whether it succeeded or what error 
      * occured
     */
-    int (*config)(struct log_device *logdev, void *arg);
+    int (*config)(struct esi_logdev *logdev, void *arg);
 
     /**
      * @brief open "logdev", after "open" return successfully, "write" and 
@@ -39,23 +39,24 @@ struct log_device_ops {
      * @return a status code indicating whether it succeeded or what error
      * occured
     */
-   int (*open)(struct log_device *logdev, void *arg);
+   int (*open)(struct esi_logdev *logdev, void *arg);
 
    /**
     * @brief close "logdev"
     * 
     * @return return value would be ignored by caller
    */
-  int (*close)(struct log_device *logdev);
+  int (*close)(struct esi_logdev *logdev);
 };
 
-struct log_device {
+struct esi_logdev {
     /**< the blob hiding the concrete implementation detail of the device (
      * UART, SPI, I2C, or memory)*/
-    void *device_struct;
+    void *logdev_struct;
+
     /**< add one everytime a write fails */
     int err_count;
 
     /**< interfaces a "log_device" should provide */
-    struct log_device_ops *ops;
+    struct esi_logdev_ops *ops;
 };

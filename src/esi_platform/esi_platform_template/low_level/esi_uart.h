@@ -12,26 +12,63 @@
  * 
 */
 
+/**
+ * `esi_uart_port_t` should be defined according the the underlying platform
+ * 
+*/
+typedef /* please provide platform-specific definition */ int esi_uart_port_t;
+
+/**
+ * if there are multiple UART port avaliable, they are referred by the 
+ * following macros, they are of `esi_uart_port_t` type:
+ * ESI_UART_PORT1
+ * ESI_UART_PORT2
+ * ...
+*/
+
+/**
+ * @brief check if "esi_uart" module is avaliable on underlying platform
+ * 
+ * @return non-zero value if it's available, or zero if not
+*/
 int esi_uart_available(void);
 
-int esi_uart_get_num(void);
+/**
+ * @brief get the number of available UART port on underlying platform
+ * 
+ * There are two ways to get the reference to available UART ports:
+ * 1. check "esi_uart.h" header file for `ESI_UART_PORT*`
+ * 2. call `esi_uart_get_port_num()` then call `esi_uart_get_port_by_id()`
+ * accordingly.
+ * 
+ * @return the number of available ports
+*/
+int esi_uart_get_port_num(void);
 
 #ifdef ESI_PLATFORM_FEATURES_UART_AVAILABLE
 
-struct esi_uart {
-    /* platform-specific implementation of esi_uart */
-};
+/**
+ * @brief get `ESI_UART_PORT<id>`
+*/
+esi_uart_port_t esi_uart_get_port_by_id(int id);
 
-int esi_uart_open(struct esi_uart *uart, int id);
+/**
+ * @brief check if the given port is open
+ * 
+ * @return non-zero value if it's open or zero if not
+*/
+int esi_uart_is_open(esi_uart_port_t port);
 
-int esi_uart_close(struct esi_uart *uart);
+int esi_uart_open(esi_uart_port_t port);
 
-int esi_uart_rx_ready(struct esi_uart *uart);
+int esi_uart_close(esi_uart_port_t port);
 
-int esi_uart_tx_ready(struct esi_uart *uart);
+int esi_uart_rx_ready(esi_uart_port_t port);
 
-int esi_uart_putchar(struct esi_uart *uart, char c);
+int esi_uart_tx_ready(esi_uart_port_t port);
 
-int esi_uart_getchar(struct esi_uart *uart, char *c);
+int esi_uart_putchar(esi_uart_port_t port, uint8_t c);
+
+int esi_uart_getchar(esi_uart_port_t port, uint8_t *c);
 
 #endif

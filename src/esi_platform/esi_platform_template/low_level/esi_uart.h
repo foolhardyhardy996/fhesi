@@ -12,6 +12,8 @@
  * 
 */
 
+#include "esi_common/esi_err.h"
+
 /**
  * `esi_uart_port_t` should be defined according the the underlying platform
  * 

@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "esi_str.h"
 #include "strchrnul.h"
 
 #define ALIGN (sizeof(size_t))

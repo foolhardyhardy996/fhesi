@@ -1,21 +1,22 @@
 #pragma once 
 
 /**
- * @file esi_err.h
- * @brief this module provides unified error code encoding and decoding 
- * mechanism
+ * @file esi_err_test.h
+ * @brief this file is adapted from "esi_err.h" for the purpose of testing
  * 
  * we define "esi_err = esi_err_src :: esi_err_status"
  * 
  * @author Li Weida
- * @date 2023.05.17
+ * @date 2023.05.30
 */
+
+#include <stdint.h>
 
 /**
  * the definition of `esi_err_t` can be adjusted according custome needs
  * the only assumption is that, it should be of integeral type
 */
-typedef /* custome definition */ int esi_err_t;
+typedef uint32_t esi_err_t;
 
 /**
  * the following macros can be adjusted according to the underlying platform 
@@ -35,26 +36,37 @@ typedef /* custome definition */ int esi_err_t;
  * be zero
 */
 enum esi_err_src {
-    ESI_ERR_SRC_NONE = 0
+    ESI_ERR_SRC_NONE = 0,
+    ESI_ERR_SRC_PART1 = 1,
+    ESI_ERR_SRC_PART2 = 2,
+    ESI_ERR_SRC_PART3 = 3
 };
 
 #define ESI_ERR_SRC_MSG {\
-    "none"\
+    "none", /*0*/\
+    "component1", /*1*/\
+    "component2", /*2*/\
+    "component3"  /*3*/\
 }
 
 enum esi_err_status {
-    ESI_ERR_STATUS_NONE = 0
+    ESI_ERR_STATUS_NONE = 0,
+    ESI_ERR_STATUS_BUSSY = 1,
+    ESI_ERR_STATUS_DEAD = 2, 
+    ESI_ERR_STATUS_DEFUNCT = 3, 
+    ESI_ERR_STATUS_WRONGPARAM = 4
 };
 
 #define ESI_ERR_STATUS_MSG {\
-    "none"\
+    "none", /*0*/\
+    "bussy, try again", /*1*/\
+    "dead, please inform administrator", /*2*/\
+    "defunct, please try fixing", /*3*/\
+    "wrong parameter, please check interface doc" /*4*/\
 }
 
 /**
  * @breif fhesi version of standard library `strerror`
- * 
- * this function uses a static buffer, so it's neither thread-safe or 
- * reentrant.
 */
 const char *esi_strerror(esi_err_t err);
 

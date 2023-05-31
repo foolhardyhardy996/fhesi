@@ -1,0 +1,1 @@
+git@github.com:Marian-Vittek/sglib.git

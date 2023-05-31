@@ -61,16 +61,16 @@ esi_uart_port_t esi_uart_get_port_by_id(int id);
 */
 int esi_uart_is_open(esi_uart_port_t port);
 
-int esi_uart_open(esi_uart_port_t port);
+esi_err_t esi_uart_open(esi_uart_port_t port);
 
-int esi_uart_close(esi_uart_port_t port);
+esi_err_t esi_uart_close(esi_uart_port_t port);
 
-int esi_uart_rx_ready(esi_uart_port_t port);
+esi_err_t esi_uart_rx_ready(esi_uart_port_t port);
 
-int esi_uart_tx_ready(esi_uart_port_t port);
+esi_err_t esi_uart_tx_ready(esi_uart_port_t port);
 
-int esi_uart_putchar(esi_uart_port_t port, uint8_t c);
+esi_err_t esi_uart_putchar(esi_uart_port_t port, uint8_t c);
 
-int esi_uart_getchar(esi_uart_port_t port, uint8_t *c);
+esi_err_t esi_uart_getchar(esi_uart_port_t port, uint8_t *c);
 
 #endif

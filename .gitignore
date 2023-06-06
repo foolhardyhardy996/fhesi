@@ -1,2 +1,4 @@
 upstream
-**/.DS_Store
+**.DS_Store
+**.o
+**.a

@@ -51,9 +51,15 @@ typedef int esi_irq_t;
 */
 typedef void (*esi_isr_t)(esi_irq_t, void *);
 
-esi_irq_t esi_intc_get_irq_num(void);
+int esi_intc_get_irq_num(void);
 
 esi_irq_t esi_intc_get_irq_by_id(int id);
+
+int esi_intc_is_enabled(esi_irq_t irq);
+
+esi_err_t esi_intc_enable(esi_irq_t irq);
+
+esi_err_t esi_intc_disable(esi_irq_t irq);
 
 esi_err_t esi_intc_install_isr(esi_irq_t irq, esi_isr_t isr, void *arg);
 

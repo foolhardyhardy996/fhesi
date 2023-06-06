@@ -2,10 +2,11 @@
 
 /**
  * @file esi_uart.h
- * @brief "esi_uart" provides platform-specific implementation for common UART 
+ * @brief "esi_uart.h" provides platform-independent interfaces for common UART 
  * operations.
  * 
- * 
+ * Please provide the concrete implementation for these interfaces for your
+ * platform.
  * 
  * @author Li Weida
  * @date 2023.05.26
@@ -15,10 +16,10 @@
 #include "esi_common/esi_err.h"
 
 /**
- * `esi_uart_port_t` should be defined according the the underlying platform
+ * `esi_uart_port_t` is used to refer available UART ports.
  * 
 */
-typedef /* please provide platform-specific definition */ int esi_uart_port_t;
+typedef int esi_uart_port_t;
 
 /**
  * if there are multiple UART port avaliable, they are referred by the 

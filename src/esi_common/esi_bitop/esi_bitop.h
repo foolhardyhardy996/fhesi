@@ -19,3 +19,6 @@
 #define ESI_BITOP_BITSET(V,N)                 (V)|=ESI_BITOP_BIT(N)
 #define ESI_BITOP_BITCLEAR(V,N)               (V)&=~ESI_BITOP_BIT(N)
 #define ESI_BITOP_BITTOGGLE(V,N)              (V)^=ESI_BITOP_BIT(N)
+
+// check value of single bit
+#define ESI_BITOP_IS_ON(V,N) ((V)&ESI_BITOP_BIT(N))

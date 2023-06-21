@@ -11,6 +11,26 @@ void print_elem(int index, int val) {
     printf("arr[%d] = %d\n", index, val);
 }
 
+int predicate_gt15(int val);
+int predicate_gt15(int val) {
+    return val > 15;
+}
+
+int predicate_lt0(int val);
+int predicate_lt0(int val) {
+    return val < 0;
+}
+
+int predicate_eq20(int val);
+int predicate_eq20(int val) {
+    return val == 20;
+}
+
+int predicate_eq17(int val);
+int predicate_eq17(int val) {
+    return val == 17;
+}
+
 int main(int argc, char *argv[]) {
     //my_arr_t arr;
     ESI_ARR_DECL(my_arr_t, arr);
@@ -35,7 +55,37 @@ int main(int argc, char *argv[]) {
         }
         printf("[INFO]: cap = %d, len = %d\n", ESI_ARR_CAP(my_arr_t, &arr), ESI_ARR_LEN(my_arr_t, &arr));
     }
+    for (i = 0; i < 5; i++) {
+        printf("[INFO]: append 20\n");
+        ret = ESI_ARR_APPEND(my_arr_t, &arr, 20);
+        if (ret != 0) {
+            printf("[ERROR]: append failed, check code\n");
+        }
+        printf("[INFO]: cap = %d, len = %d\n", ESI_ARR_CAP(my_arr_t, &arr), ESI_ARR_LEN(my_arr_t, &arr));
+    }
     ESI_ARR_FOR_EACH_ELEM(my_arr_t, &arr, print_elem);
+    if (ESI_ARR_CONTAINS(my_arr_t, &arr, 100)) {
+        printf("[ERROR]: contains fail, check code.\n");
+    } {
+        printf("[INFO]: array doesn't contain 100\n");
+    }
+    if (ESI_ARR_CONTAINS(my_arr_t, &arr, 3)) {
+        printf("[INFO]: array contains 10\n");
+    } else {
+        printf("[ERROR]: contains fail, check code\n");
+    }
+    if (ESI_ARR_ANY(my_arr_t, &arr, predicate_gt15)) {
+        printf("[INFO]: any greater than 15: yes\n");
+    } else {
+        printf("[ERROR]: check any implementation\n");
+    }
+    if (ESI_ARR_ANY(my_arr_t, &arr, predicate_lt0)) {
+        printf("[ERROR]: check any implementation\n");
+    } else {
+        printf("[INFO]: any less than 0: no\n");
+    }
+    printf("[INFO]: the first index for 20 is %d\n", ESI_ARR_FIND_IF(my_arr_t, &arr, predicate_eq20));
+    printf("[INFO]: the first index for 17 is %d\n", ESI_ARR_FIND_IF(my_arr_t, &arr, predicate_eq17));
     printf("[INFO]: everything is fine.\n");
 
     return 0;

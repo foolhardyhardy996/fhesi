@@ -52,9 +52,36 @@ typedef esi_arr_##ELEM_T##_##N##_st_elem_ptr_t TYPE_ALIAS##_elem_ptr_t;\
 int TYPE_ALIAS##_cap(TYPE_ALIAS##_ptr_t);\
 int TYPE_ALIAS##_len(TYPE_ALIAS##_ptr_t);\
 TYPE_ALIAS##_slice_t TYPE_ALIAS##_slice(TYPE_ALIAS##_ptr_t, int, int);\
+int TYPE_ALIAS##_is_empty(TYPE_ALIAS##_ptr_t);\
+int TYPE_ALIAS##_is_full(TYPE_ALIAS##_ptr_t);\
 int TYPE_ALIAS##_insert(TYPE_ALIAS##_ptr_t, int, ELEM_T);\
+int TYPE_ALIAS##_append(TYPE_ALIAS##_ptr_t, ELEM_T);\
 int TYPE_ALIAS##_remove(TYPE_ALIAS##_ptr_t, int);\
+int TYPE_ALIAS##_find_if(TYPE_ALIAS##_ptr_t, int(*)(ELEM_T));\
+int TYPE_ALIAS##_any(TYPE_ALIAS##_ptr_t, int(*)(ELEM_T));\
+int TYPE_ALIAS##_contains(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_elem_t);\
 void TYPE_ALIAS##_for_each_elem(TYPE_ALIAS##_ptr_t, void (*)(int, ELEM_T));\
+
+#define ESI_ARR_PTR_T(ARR_T) ARR_T##_ptr_t
+#define ESI_ARR_SLICE_T(ARR_T) ARR_T##_slice_t
+#define ESI_ARR_ELEM_T(ARR_T) ARR_T##_elem_t 
+#define ESI_ARR_ELEM_PTR_T(ARR_T) ARR_T##_elem_ptr_t
+
+#define ESI_ARR_DECL(ARR_T, VAR) ARR_T VAR = {.size = 0}
+#define ESI_ARR_INIT(ARR_T, VAR) VAR = {.size = 0}
+#define ESI_ARR_AT(ARR_T, p_arr, pos) p_arr->data[pos]
+#define ESI_ARR_IS_EMPTY(ARR_T, p_arr) ARR_T##_is_empty(p_arr)
+#define ESI_ARR_IS_FULL(ARR_T, p_arr) ARR_T##_is_full(p_arr) 
+#define ESI_ARR_CAP(ARR_T, p_arr) ARR_T##_cap(p_arr)
+#define ESI_ARR_LEN(ARR_T, p_arr) ARR_T##_len(p_arr)
+#define ESI_ARR_SLICE(ARR_T, p_arr, start, end) ARR_T##_slice(p_arr, start, end)
+#define ESI_ARR_INSERT(ARR_T, p_arr, pos, elem) ARR_T##_insert(p_arr, pos, elem)
+#define ESI_ARR_APPEND(ARR_T, p_arr, elem) ARR_T##_append(p_arr, elem)
+#define ESI_ARR_REMOVE(ARR_T, p_arr, pos) ARR_T##_remove(p_arr, pos)
+#define ESI_ARR_FIND_IF(ARR_T, p_arr, predicate) ARR_T##_find_if(p_arr, predicate)
+#define ESI_ARR_ANY(ARR_T, p_arr, predicate) ARR_T##_any(p_arr, predicate)
+#define ESI_ARR_CONTAINS(ARR_T, p_arr, elem) ARR_T##_contains(p_arr, elem)
+#define ESI_ARR_FOR_EACH_ELEM(ARR_T, p_arr, func) ARR_T##_for_each_elem(p_arr, func)
 
 #define ESI_ARR_TYPE_IMPL(TYPE_ALIAS, ELEM_T, N) \
 int TYPE_ALIAS##_cap(TYPE_ALIAS##_ptr_t p_arr) {\
@@ -66,6 +93,20 @@ int TYPE_ALIAS##_len(TYPE_ALIAS##_ptr_t p_arr) {\
 TYPE_ALIAS##_slice_t TYPE_ALIAS##_slice(TYPE_ALIAS##_ptr_t p_arr, int start, int end) {\
     TYPE_ALIAS##_slice_t slice = {p_arr->data + start, end - start};\
     return slice;\
+}\
+int TYPE_ALIAS##_is_empty(TYPE_ALIAS##_ptr_t p_arr) {\
+    if (p_arr->size == 0) {\
+        return 1;\
+    } else {\
+        return 0;\
+    } \
+}\
+int TYPE_ALIAS##_is_full(TYPE_ALIAS##_ptr_t p_arr) {\
+    if (p_arr->size == N) {\
+        return 1;\
+    } else {\
+        return 0;\
+    }\
 }\
 int TYPE_ALIAS##_insert(TYPE_ALIAS##_ptr_t p_arr, int pos, ELEM_T elem) {\
     if (p_arr->size >= N) {\
@@ -83,6 +124,9 @@ int TYPE_ALIAS##_insert(TYPE_ALIAS##_ptr_t p_arr, int pos, ELEM_T elem) {\
     }\
     return ESI_ARR_ERR_NONE;\
 }\
+int TYPE_ALIAS##_append(TYPE_ALIAS##_ptr_t p_arr, ELEM_T elem) {\
+    return ESI_ARR_INSERT(TYPE_ALIAS, p_arr, ESI_ARR_LEN(TYPE_ALIAS, p_arr), elem);\
+}\
 int TYPE_ALIAS##_remove(TYPE_ALIAS##_ptr_t p_arr, int pos) {\
     if (p_arr->size == 0) {\
         return ESI_ARR_ERR_EMPTY;\
@@ -97,23 +141,36 @@ int TYPE_ALIAS##_remove(TYPE_ALIAS##_ptr_t p_arr, int pos) {\
     }\
     return ESI_ARR_ERR_NONE;\
 }\
+int TYPE_ALIAS##_find_if(TYPE_ALIAS##_ptr_t p_arr, int(*predicate)(ELEM_T)) {\
+    int i = 0;\
+    for (; i < p_arr->size; i++) {\
+        if (predicate(p_arr->data[i]) != 0) {\
+            return i;\
+        }\
+    }\
+    return -1;\
+}\
+int TYPE_ALIAS##_any(TYPE_ALIAS##_ptr_t p_arr, int(*predicate)(ELEM_T)) {\
+    int i = 0;\
+    for (; i < p_arr->size; i++) {\
+        if (predicate(p_arr->data[i]) != 0) {\
+            return 1;\
+        }\
+    }\
+    return 0;\
+}\
+int TYPE_ALIAS##_contains(TYPE_ALIAS##_ptr_t p_arr, TYPE_ALIAS##_elem_t elem) {\
+    int i = 0;\
+    for (; i < p_arr->size; i++) {\
+        if (p_arr->data[i] == elem) {\
+            return 1;\
+        }\
+    }\
+    return 0;\
+}\
 void TYPE_ALIAS##_for_each_elem(TYPE_ALIAS##_ptr_t p_arr, void (*func)(int, ELEM_T)) {\
     int i = 0;\
     for(; i < p_arr->size; i++) {\
         func(i, p_arr->data[i]);\
     }\
 }
-
-#define ESI_ARR_PTR_T(ARR_T) ARR_T##_ptr_t
-#define ESI_ARR_SLICE_T(ARR_T) ARR_T##_slice_t
-#define ESI_ARR_ELEM_T(ARR_T) ARR_T##_elem_t 
-#define ESI_ARR_ELEM_PTR_T(ARR_T) ARR_T##_elem_ptr_t
-
-#define ESI_ARR_DECL(ARR_T, VAR) ARR_T VAR = {.size = 0}
-#define ESI_ARR_INIT(ARR_t, VAR) VAR = {.size = 0}
-#define ESI_ARR_CAP(ARR_T, p_arr) ARR_T##_cap(p_arr)
-#define ESI_ARR_LEN(ARR_T, p_arr) ARR_T##_len(p_arr)
-#define ESI_ARR_SLICE(ARR_T, p_arr, start, end) ARR_T##_slice(p_arr, start, end)
-#define ESI_ARR_INSERT(ARR_T, p_arr, pos, elem) ARR_T##_insert(p_arr, pos, elem)
-#define ESI_ARR_REMOVE(ARR_T, p_arr, pos) ARR_T##_remove(p_arr, pos)
-#define ESI_ARR_FOR_EACH_ELEM(ARR_T, p_arr, func) ARR_T##_for_each_elem(p_arr, func)

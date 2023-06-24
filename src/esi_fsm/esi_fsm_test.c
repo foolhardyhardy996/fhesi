@@ -1,21 +1,11 @@
 #include "esi_fsm.h"
+#include <stdio.h>
 
 #define INITIAL_STATE (0)
 #define FACTORY_STATE (1)
 #define READY_STATE (2)
 #define WORKING_STATE (3)
 #define STATE_LIST_LEN (4)
-static esi_fsm_state_id_t state_list[STATE_LIST_LEN] = {
-    INITIAL_STATE,
-    FACTORY_STATE,
-    READY_STATE,
-    WORKING_STATE
-};
-
-struct fsm_state_memory {
-    int counter;
-};
-static struct fsm_state_memory state_memory = {0};
 
 #define MANU (0)
 #define AUTH (1)
@@ -24,36 +14,26 @@ static struct fsm_state_memory state_memory = {0};
 #define STOP (4)
 #define WORK (5)
 #define EVENT_LIST_LEN (6)
-static esi_fsm_event_id_t event_list[EVENT_LIST_LEN] {
-    MANU,
-    AUTH,
-    WITHDRAW,
-    START,
-    STOP,
-    WORK
-};
 
-struct fsm_event_arg {
-    int counter;
-};
+#define TRANS_LIST_LEN (7)
 
-static int manu_trans(
-    void *fsm_holder,
-    struct esi_fsm_state current_state,
-    struct esi_fsm_event event, 
-    struct esi_fsm_state *next_state);
-static int manu_trans(
-    void *fsm_holder,
-    struct esi_fsm_state current_state,
-    struct esi_fsm_event event, 
-    struct esi_fsm_state *next_state) {
+ESI_FSM_TYPE_DECL(dev_fsm_t, int, int, STATE_LIST_LEN, EVENT_LIST_LEN, TRANS_LIST_LEN);
+ESI_FSM_TYPE_IMPL(dev_fsm_t, int, int, STATE_LIST_LEN, EVENT_LIST_LEN, TRANS_LIST_LEN);
 
-    struct esi_fsm_from_lists *fsm = (struct esi_fsm_from_lists *) fsm_holder;
-    
+static ESI_FSM_STATE_T(dev_fsm_t) global_dev_fsm_initial_state = {.state_id = INITIAL_STATE, .state_mem = 0};
+static ESI_FSM_DECL(dev_fsm_t, global_dev_fsm);
+
+static void print_dev_fsm(dev_fsm_t *p_fsm);
+static void print_dev_fsm(dev_fsm_t *p_fsm) {
+    printf("[INFO]: current state is %d, counter = %d\n", p_fsm->current_state.state_id, p_fsm->current_state.state_mem);
 }
 
-static esi_fsm_from_lists;
+static void init_dev_fsm(dev_fsm_t *p_fsm) {
+    ESI_FSM_SET_CURRENT_STATE(dev_fsm_t, p_fsm, &global_dev_fsm_initial_state);
+}
 
 int main(int argc, char *argv[]) {
-    
+    init_dev_fsm(&global_dev_fsm);
+    print_dev_fsm(&global_dev_fsm);
+    printf("[INFO]: everything is fine.\n");
 }

@@ -139,20 +139,20 @@ int TYPE_ALIAS##_add_state(TYPE_ALIAS##_ptr_t p_fsm, int state_id) {\
      * 1. check if state_id is already in list \
      * 2. add state_id into list if not full \
      */ \
-    if (ESI_ARR_CONTAINS(TYPE_ALIAS##_id_arr_t, &(p_fsm->state_id_list), state_id)) {\
+    if (ESI_ARR_CONTAINS(TYPE_ALIAS##_id_arr_t, &(p_fsm->state_id_list), &state_id)) {\
         return ESI_FSM_ERR_STATE_EXIST;\
     }\
     if (ESI_ARR_IS_FULL(TYPE_ALIAS##_id_arr_t, &(p_fsm->state_id_list))) {\
         return ESI_FSM_ERR_CAP;\
     }\
-    ESI_ARR_APPEND(TYPE_ALIAS##_id_arr_t, &(p_fsm->state_id_list), state_id);\
+    ESI_ARR_APPEND(TYPE_ALIAS##_id_arr_t, &(p_fsm->state_id_list), &state_id);\
     return ESI_FSM_ERR_NONE;\
 }\
-static int TYPE_ALIAS##_predicate_id_match(TYPE_ALIAS##_trans_t);\
+static int TYPE_ALIAS##_predicate_id_match(TYPE_ALIAS##_trans_ptr_t);\
 static int TYPE_ALIAS##_predicate_id_match_state_id;\
 static int TYPE_ALIAS##_predicate_id_match_event_id;\
-static int TYPE_ALIAS##_predicate_id_match(TYPE_ALIAS##_trans_t trans) {\
-    if (trans.state_id == TYPE_ALIAS##_predicate_id_match_state_id && trans.event_id == TYPE_ALIAS##_predicate_id_match_event_id) {\
+static int TYPE_ALIAS##_predicate_id_match(TYPE_ALIAS##_trans_ptr_t trans) {\
+    if (trans->state_id == TYPE_ALIAS##_predicate_id_match_state_id && trans->event_id == TYPE_ALIAS##_predicate_id_match_event_id) {\
         return 1;\
     } else {\
         return 0;\
@@ -171,7 +171,7 @@ int TYPE_ALIAS##_add_event(TYPE_ALIAS##_ptr_t p_fsm, int state_id, int event_id,
     trans.state_id = state_id;\
     trans.event_id = event_id;\
     trans.trans_func = func;\
-    ESI_ARR_APPEND(TYPE_ALIAS##_trans_arr_t, &(p_fsm->trans_list), trans);\
+    ESI_ARR_APPEND(TYPE_ALIAS##_trans_arr_t, &(p_fsm->trans_list), &trans);\
     return ESI_FSM_ERR_NONE;\
 }\
 static int TYPE_ALIAS##_null_trans_func(TYPE_ALIAS##_state_ptr_t, TYPE_ALIAS##_event_ptr_t, TYPE_ALIAS##_state_ptr_t);\

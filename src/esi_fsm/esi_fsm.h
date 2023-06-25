@@ -40,7 +40,7 @@ enum esi_fsm_err {
     "esi_fsm: error occured at transition" /*5*/\
 }
 
-const char *esi_arr_strerror(int err);
+const char *esi_fsm_strerror(int err);
 
 #define ESI_FSM_TYPE_DECL(TYPE_ALIAS, STATE_MEM_T, EVENT_ARG_T, STATE_LIST_CAP, EVENT_LIST_CAP, TRANS_LIST_CAP) \
 struct esi_fsm_state_##STATE_MEM_T {\
@@ -100,9 +100,14 @@ int TYPE_ALIAS##_set_default_trans(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_trans_func_t
 int TYPE_ALIAS##_trans(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_event_ptr_t);
 
 #define ESI_FSM_STATE_T(FSM_T) FSM_T##_state_t
+#define ESI_FSM_STATE_PTR_T(FSM_T) FSM_T##_state_ptr_t
 #define ESI_FSM_EVENT_T(FSM_T) FSM_T##_event_t
+#define ESI_FSM_EVENT_PTR_T(FSM_T) FSM##_event_ptr_t
 #define ESI_FSM_TRANS_FUNC_T(FSM_T) FSM_T##_trans_func_t
+#define ESI_FSM_TRANS_FUNC_DECL(FSM_T, func_name, current_state, event, next_state) \
+int func_name(FSM_T##_state_ptr_t current_state, FSM_T##_event_ptr_t event, FSM_T##_state_ptr_t next_state)
 #define ESI_FSM_TRANS_T(FSM_T) FSM_T##_trans_t
+#define ESI_FSM_TRANS_PTR_T(FSM_T) FSM_T##_trans_ptr_t
 
 #define ESI_FSM_DECL(FSM_T, VAR) FSM_T VAR = {\
     .state_id_list = ESI_ARR_INITIALIZER(TYPE_ALIAS##_id_arr_t),\
@@ -111,6 +116,10 @@ int TYPE_ALIAS##_trans(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_event_ptr_t);
     .default_trans = {.state_id = -1, .event_id = -1, .trans_func = FSM_T##_null_trans_func}\
 }
 #define ESI_FSM_SET_CURRENT_STATE(FSM_T, p_fsm, p_state) FSM_T##_set_current_state(p_fsm, p_state)
+#define ESI_FSM_ADD_STATE(FSM_T, p_fsm, state_id) FSM_T##_add_state(p_fsm, state_id)
+#define ESI_FSM_ADD_EVENT(FSM_T, p_fsm, state_id, event_id, trans_func) FSM_T##_add_event(p_fsm, state_id, event_id, trans_func)
+#define ESI_FSM_SET_DEFAULT_TRANS(FSM_T, p_fsm, trans_func) FSM_T##_set_default_trans(p_fsm, trans_func)
+#define ESI_FSM_TRANS(FSM_T, p_fsm, p_event) FSM_T##_trans(p_fsm, p_event)
 
 #define ESI_FSM_TYPE_IMPL(TYPE_ALIAS, STATE_MEM_T, EVENT_ARG_T, STATE_LIST_CAP, EVENT_LIST_CAP, TRANS_LIST_CAP) \
 /* supporting array types */ \

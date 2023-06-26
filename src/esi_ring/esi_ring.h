@@ -17,7 +17,7 @@ enum esi_ring_err {
     ESI_RING_ERR_RANGE
 };
 
-#define ESI_ARR_ERR_MSG {\
+#define ESI_RING_ERR_MSG {\
     "esi_ring: ok", /*0*/\
     "esi_ring: capacity has been reached", /*1*/\
     "esi_ring: empty", /*2*/\
@@ -57,7 +57,7 @@ void TYPE_ALIAS##_for_each_elem(TYPE_ALIAS##_ptr_t, void (*)(int, TYPE_ALIAS##_e
 
 #define ESI_RING_PTR_T(RING_T) RING_T##_ptr_t
 #define ESI_RING_ELEM_T(RING_T) RING_T##_elem_t 
-#define ESI_RING_ELEM_PTR_T(ARR_T) RING_T##_elem_ptr_t
+#define ESI_RING_ELEM_PTR_T(RING_T) RING_T##_elem_ptr_t
 
 #define ESI_RING_DECL(RING_T, VAR) RING_T VAR = {.head = 0, .tail = 0}
 #define ESI_RING_INIT(RING_T, VAR) VAR = {.head = 0, .tail = 0}
@@ -72,8 +72,8 @@ void TYPE_ALIAS##_for_each_elem(TYPE_ALIAS##_ptr_t, void (*)(int, TYPE_ALIAS##_e
 #define ESI_RING_PEEK_BACK(RING_T, p_ring) p_ring->data[(p_ring->tail - 1 + RING_T##_cap(p_ring)) % RING_T##_cap(p_ring)]
 #define ESI_RING_PUSH_FRONT(RING_T, p_ring, p_elem) RING_T##_push_front(p_ring, p_elem)
 #define ESI_RING_PUSH_BACK(RING_T, p_ring, p_elem) RING_T##_push_back(p_ring, p_elem)
-#define ESI_RING_POP_FRONT(RING_T, p_ring) RING_T##_pop_front(p_ring, p_elem)
-#define ESI_RING_POP_BACK(RING_T, p_ring) RING_T##_pop_back(p_ring, p_elem)
+#define ESI_RING_POP_FRONT(RING_T, p_ring) RING_T##_pop_front(p_ring)
+#define ESI_RING_POP_BACK(RING_T, p_ring) RING_T##_pop_back(p_ring)
 #define ESI_RING_FIND_IF(RING_T, p_ring, predicate) RING_T##_find_if(p_ring, predicate)
 #define ESI_RING_ANY(RING_T, p_ring, predicate) RING_T##_any(p_ring, predicate)
 #define ESI_RING_CONTAINS(RING_T, p_ring, p_elem) RING_T##_contains(p_ring, p_elem)
@@ -89,40 +89,40 @@ int TYPE_ALIAS##_len(TYPE_ALIAS##_ptr_t p_ring) {\
 int TYPE_ALIAS##_is_empty(TYPE_ALIAS##_ptr_t p_ring) {\
     return p_ring->head == p_ring->tail;\
 }\
-int TYPE_ALIAS##_is_full(TYPE_ALIAS##_ptr_t p_arr) {\
+int TYPE_ALIAS##_is_full(TYPE_ALIAS##_ptr_t p_ring) {\
     return (p_ring->tail + 1) % N == p_ring->head;\
 }\
 int TYPE_ALIAS##_push_front(TYPE_ALIAS##_ptr_t p_ring, TYPE_ALIAS##_elem_ptr_t p_elem) {\
     if (TYPE_ALIAS##_is_full(p_ring)) {\
         return ESI_RING_ERR_CAP;\
     } else {\
-        p_ring.head = (N + p_ring.head - 1) % N;\
-        p_ring.data[p_ring->head] = *p_elem;\
+        p_ring->head = (N + p_ring->head - 1) % N;\
+        p_ring->data[p_ring->head] = *p_elem;\
     }\
     return ESI_RING_ERR_NONE;\
 }\
-int TYPE_ALIAS##_push_back(TYPE_ALIAS##_ptr_t p_arr, TYPE_ALIAS##_elem_ptr_t p_elem) {\
+int TYPE_ALIAS##_push_back(TYPE_ALIAS##_ptr_t p_ring, TYPE_ALIAS##_elem_ptr_t p_elem) {\
     if (TYPE_ALIAS##_is_full(p_ring)) {\
         return ESI_RING_ERR_CAP;\
     } else {\
-        p_ring.data[p_ring.tail] = *p_elem;\
-        p_ring.tail = (p_ring.tail + 1) % N;\
+        p_ring->data[p_ring->tail] = *p_elem;\
+        p_ring->tail = (p_ring->tail + 1) % N;\
     }\
     return ESI_RING_ERR_NONE;\
 }\
 int TYPE_ALIAS##_pop_front(TYPE_ALIAS##_ptr_t p_ring) {\
     if (TYPE_ALIAS##_is_empty(p_ring)) {\
-        return ESI_ARR_ERR_EMPTY;\
+        return ESI_RING_ERR_EMPTY;\
     }\
     p_ring->head = (p_ring->head + 1) % N;\
-    return ESI_ARR_ERR_NONE;\
+    return ESI_RING_ERR_NONE;\
 }\
 int TYPE_ALIAS##_pop_back(TYPE_ALIAS##_ptr_t p_ring) {\
     if (TYPE_ALIAS##_is_empty(p_ring)) {\
-        return ESI_ARR_ERR_EMPTY;\
+        return ESI_RING_ERR_EMPTY;\
     }\
     p_ring->tail = (N + p_ring->tail - 1) % N;\
-    return ESI_ARR_ERR_NONE;\
+    return ESI_RING_ERR_NONE;\
 }\
 int TYPE_ALIAS##_find_if(TYPE_ALIAS##_ptr_t p_ring, int(*predicate)(TYPE_ALIAS##_elem_ptr_t)) {\
     int len = TYPE_ALIAS##_len(p_ring), i;\
@@ -142,7 +142,7 @@ int TYPE_ALIAS##_any(TYPE_ALIAS##_ptr_t p_ring, int(*predicate)(TYPE_ALIAS##_ele
     }\
     return 0;\
 }\
-int TYPE_ALIAS##_contains(TYPE_ALIAS##_ptr_t p_arr, TYPE_ALIAS##_elem_ptr_t p_elem) {\
+int TYPE_ALIAS##_contains(TYPE_ALIAS##_ptr_t p_ring, TYPE_ALIAS##_elem_ptr_t p_elem) {\
     int len = TYPE_ALIAS##_len(p_ring), i;\
     for (i = 0; i < len; i++) {\
         if (p_ring->data[(p_ring->head + i) % N] == *p_elem) {\
@@ -175,33 +175,33 @@ int TYPE_ALIAS##_push_front(TYPE_ALIAS##_ptr_t p_ring, TYPE_ALIAS##_elem_ptr_t p
     if (TYPE_ALIAS##_is_full(p_ring)) {\
         return ESI_RING_ERR_CAP;\
     } else {\
-        p_ring.head = (N + p_ring.head - 1) % N;\
-        p_ring.data[p_ring->head] = *p_elem;\
+        p_ring->head = (N + p_ring->head - 1) % N;\
+        p_ring->data[p_ring->head] = *p_elem;\
     }\
     return ESI_RING_ERR_NONE;\
 }\
-int TYPE_ALIAS##_push_back(TYPE_ALIAS##_ptr_t p_arr, TYPE_ALIAS##_elem_ptr_t p_elem) {\
+int TYPE_ALIAS##_push_back(TYPE_ALIAS##_ptr_t p_ring, TYPE_ALIAS##_elem_ptr_t p_elem) {\
     if (TYPE_ALIAS##_is_full(p_ring)) {\
         return ESI_RING_ERR_CAP;\
     } else {\
-        p_ring.data[p_ring.tail] = *p_elem;\
-        p_ring.tail = (p_ring.tail + 1) % N;\
+        p_ring->data[p_ring->tail] = *p_elem;\
+        p_ring->tail = (p_ring->tail + 1) % N;\
     }\
     return ESI_RING_ERR_NONE;\
 }\
 int TYPE_ALIAS##_pop_front(TYPE_ALIAS##_ptr_t p_ring) {\
     if (TYPE_ALIAS##_is_empty(p_ring)) {\
-        return ESI_ARR_ERR_EMPTY;\
+        return ESI_RING_ERR_EMPTY;\
     }\
     p_ring->head = (p_ring->head + 1) % N;\
-    return ESI_ARR_ERR_NONE;\
+    return ESI_RING_ERR_NONE;\
 }\
 int TYPE_ALIAS##_pop_back(TYPE_ALIAS##_ptr_t p_ring) {\
     if (TYPE_ALIAS##_is_empty(p_ring)) {\
-        return ESI_ARR_ERR_EMPTY;\
+        return ESI_RING_ERR_EMPTY;\
     }\
     p_ring->tail = (N + p_ring->tail - 1) % N;\
-    return ESI_ARR_ERR_NONE;\
+    return ESI_RING_ERR_NONE;\
 }\
 int TYPE_ALIAS##_find_if(TYPE_ALIAS##_ptr_t p_ring, int(*predicate)(TYPE_ALIAS##_elem_ptr_t)) {\
     int len = TYPE_ALIAS##_len(p_ring), i;\

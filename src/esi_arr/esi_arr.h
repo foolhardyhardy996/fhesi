@@ -70,7 +70,7 @@ void TYPE_ALIAS##_for_each_elem(TYPE_ALIAS##_ptr_t, void (*)(int, TYPE_ALIAS##_e
 #define ESI_ARR_DECL(ARR_T, VAR) ARR_T VAR = {.size = 0}
 #define ESI_ARR_INIT(ARR_T, VAR) VAR = {.size = 0}
 #define ESI_ARR_INITIALIZER(ARR_T) {.size = 0}
-#define ESI_ARR_AT(ARR_T, p_arr, pos) p_arr->data[pos]
+#define ESI_ARR_AT(ARR_T, p_arr, pos) (p_arr)->data[pos]
 #define ESI_ARR_IS_EMPTY(ARR_T, p_arr) ARR_T##_is_empty(p_arr)
 #define ESI_ARR_IS_FULL(ARR_T, p_arr) ARR_T##_is_full(p_arr) 
 #define ESI_ARR_CAP(ARR_T, p_arr) ARR_T##_cap(p_arr)

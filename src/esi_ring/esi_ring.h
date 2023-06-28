@@ -68,8 +68,8 @@ void TYPE_ALIAS##_for_each_elem(TYPE_ALIAS##_ptr_t, void (*)(int, TYPE_ALIAS##_e
 #define ESI_RING_CAP(RING_T, p_ring) RING_T##_cap(p_ring)
 #define ESI_RING_LEN(RING_T, p_ring) RING_T##_len(p_ring)
 /* it's caller's responsibility to ensure peek is valid */
-#define ESI_RING_PEEK_FRONT(RING_T, p_ring) p_ring->data[p_ring->head]
-#define ESI_RING_PEEK_BACK(RING_T, p_ring) p_ring->data[(p_ring->tail - 1 + RING_T##_cap(p_ring)) % RING_T##_cap(p_ring)]
+#define ESI_RING_PEEK_FRONT(RING_T, p_ring) (p_ring)->data[(p_ring)->head]
+#define ESI_RING_PEEK_BACK(RING_T, p_ring) (p_ring)->data[((p_ring)->tail - 1 + RING_T##_cap(p_ring)) % RING_T##_cap(p_ring)]
 #define ESI_RING_PUSH_FRONT(RING_T, p_ring, p_elem) RING_T##_push_front(p_ring, p_elem)
 #define ESI_RING_PUSH_BACK(RING_T, p_ring, p_elem) RING_T##_push_back(p_ring, p_elem)
 #define ESI_RING_POP_FRONT(RING_T, p_ring) RING_T##_pop_front(p_ring)
@@ -168,7 +168,7 @@ int TYPE_ALIAS##_len(TYPE_ALIAS##_ptr_t p_ring) {\
 int TYPE_ALIAS##_is_empty(TYPE_ALIAS##_ptr_t p_ring) {\
     return p_ring->head == p_ring->tail;\
 }\
-int TYPE_ALIAS##_is_full(TYPE_ALIAS##_ptr_t p_arr) {\
+int TYPE_ALIAS##_is_full(TYPE_ALIAS##_ptr_t p_ring) {\
     return (p_ring->tail + 1) % N == p_ring->head;\
 }\
 int TYPE_ALIAS##_push_front(TYPE_ALIAS##_ptr_t p_ring, TYPE_ALIAS##_elem_ptr_t p_elem) {\
@@ -221,7 +221,7 @@ int TYPE_ALIAS##_any(TYPE_ALIAS##_ptr_t p_ring, int(*predicate)(TYPE_ALIAS##_ele
     }\
     return 0;\
 }\
-int TYPE_ALIAS##_contains(TYPE_ALIAS##_ptr_t p_arr, TYPE_ALIAS##_elem_ptr_t p_elem) {\
+int TYPE_ALIAS##_contains(TYPE_ALIAS##_ptr_t p_ring, TYPE_ALIAS##_elem_ptr_t p_elem) {\
     int len = TYPE_ALIAS##_len(p_ring), i;\
     for (i = 0; i < len; i++) {\
         if (EQ(&(p_ring->data[(p_ring->head + i) % N]), p_elem)) {\

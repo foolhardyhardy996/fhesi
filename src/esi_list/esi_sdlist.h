@@ -24,6 +24,8 @@ enum esi_sdlist_err {
     "esi_sdlist: invalid node" /*3*/\
 }
 
+const char *esi_sdlist_strerror(int err);
+
 #define ESI_SDLIST_TYPE_DECL(TYPE_ALIAS, NODE_DATA_T, N) \
 typedef NODE_DATA_T TYPE_ALIAS##_node_data_t;\
 typedef NODE_DATA_T *TYPE_ALIAS##_node_data_ptr_t;\
@@ -65,10 +67,35 @@ int TYPE_ALIAS##_delete(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_node_ptr_t);\
 int TYPE_ALIAS##_pop_front(TYPE_ALIAS##_ptr_t);\
 int TYPE_ALIAS##_pop_back(TYPE_ALIAS##_ptr_t);\
 int TYPE_ALIAS##_any_if(TYPE_ALIAS##_ptr_t, int(*)(NODE_DATA_T *));\
-void TYPE_ALIAS##_for_each(TYPE_ALIAS##_ptr_t, void(*)(NODE_DATA_T));\
+void TYPE_ALIAS##_for_each(TYPE_ALIAS##_ptr_t, void(*)(NODE_DATA_T *));\
 
 #define ESI_SDLIST_NODE_T(SDLIST_T) SDLIST_T##_node_t 
 #define ESI_SDLIST_NODE_DATA_T(SDLIST_T) SDLIST_T##_node_data_t
+
+#define ESI_SDLIST_INIT(SDLIST_T, p_sdlist) SDLIST_T##_init(p_sdlist)
+#define ESI_SDLIST_CAP(SDLIST_T, p_sdlist) SDLIST_T##_cap(p_sdlist)
+#define ESI_SDLIST_LEN(SDLIST_T, p_sdlist) SDLIST_T##_len(p_sdlist)
+#define ESI_SDLIST_GET_FREE_LIST_LEN(SDLIST_T, p_sdlist) SDLIST_T##_get_free_list_len(p_sdlist)
+#define ESI_SDLIST_IS_EMPTY(SDLIST_T, p_sdlist) SDLIST_T##_is_empty(p_sdlist)
+#define ESI_SDLIST_IS_FULL(SDLIST_T, p_sdlist) SDLIST_T##_is_full(p_sdlist)
+#define ESI_SDLIST_GET_NEXT_NODE(SDLIST_T, p_sdlist, p_node) SDLIST_T##_get_next_node(p_sdlist, p_node)
+#define ESI_SDLIST_GET_PREV_NODE(SDLIST_T, p_sdlist, p_node) SDLIST_T##_get_prev_node(p_sdlist, p_node)
+#define ESI_SDLIST_GET_NODE_INDEX(SDLIST_T, p_sdlist, p_node) SDLIST_T##_get_node_index(p_sdlist, p_node)
+#define ESI_SDLIST_FIND_NEXT_IF(SDLIST_T, p_sdlist, p_node, predicate) SDLIST_T##_find_next_if(p_sdlist, p_node, predicate)
+#define ESI_SDLIST_FIND_IF(SDLIST_T, p_sdlist, predicate) SDLIST_T##_find_if(p_sdlist, predicate)
+#define ESI_SDLIST_PEEK_FRONT(SDLIST_T, p_sdlist) SDLIST_T##_peek_front(p_sdlist)
+#define ESI_SDLIST_PEEK_BACK(SDLIST_T, p_sdlist) SDLIST_T##_peek_back(p_sdlist)
+#define ESI_SDLIST_ALLOC_NODE(SDLIST_T, p_sdlist) SDLIST_T##_alloc_node(p_sdlist)
+#define ESI_SDLIST_FREE_NODE(SDLIST_T, p_sdlist, p_node) SDLIST_T##_free_node(p_sdlist, p_node)
+#define ESI_SDLIST_INSERT_AFTER(SDLIST_T, p_sdlist, p_node, p_node_data) SDLIST_T##_insert_after(p_sdlist, p_node, p_node_data)
+#define ESI_SDLIST_INSERT_BEFORE(SDLIST_T, p_sdlist, p_node, p_node_data) SDLIST_T##_insert_before(p_sdlist, p_node, p_node_data)
+#define ESI_SDLIST_PUSH_FRONT(SDLIST_T, p_sdlist, p_node_data) SDLIST_T##_push_front(p_sdlist, p_node_data)
+#define ESI_SDLIST_PUSH_BACK(SDLIST_T, p_sdlist, p_node_data) SDLIST_T##_push_back(p_sdlist, p_node_data)
+#define ESI_SDLIST_DELETE(SDLIST_T, p_sdlist, p_node) SDLIST_T##_delete(p_sdlist, p_node)
+#define ESI_SDLIST_POP_FRONT(SDLIST_T, p_sdlist) SDLIST_T##_pop_front(p_sdlist)
+#define ESI_SDLIST_POP_BACK(SDLIST_T, p_sdlist) SDLIST_T##_pop_back(p_sdlist)
+#define ESI_SDLIST_ANY_IF(SDLIST_T, p_sdlist, predicate) SDLIST_T##_any_if(p_sdlist, predicate)
+#define ESI_SDLIST_FOR_EACH(SDLIST_T, p_sdlist, func) SDLIST_T##_for_each(p_sdlist, func)
 
 #define ESI_SDLIST_TYPE_IMPL(TYPE_ALIAS, NODE_DATA_T, N) \
 int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t p_sdlist) {\
@@ -194,7 +221,7 @@ int TYPE_ALIAS##_free_node(TYPE_ALIAS##_ptr_t p_sdlist, TYPE_ALIAS##_node_ptr_t 
     }\
     pivot_index = TYPE_ALIAS##_get_node_index(p_sdlist, p_node);\
     if (pivot_index == -1) {\
-        return ESI_SDLIST_ERR_INVALID_NONE;\
+        return ESI_SDLIST_ERR_INVALID_NODE;\
     }\
     if (p_sdlist->free_list_head != -1) {\
         p_pivot_next = &(p_sdlist->node_repo[p_sdlist->free_list_head]);\
@@ -207,7 +234,7 @@ int TYPE_ALIAS##_free_node(TYPE_ALIAS##_ptr_t p_sdlist, TYPE_ALIAS##_node_ptr_t 
 }\
 int TYPE_ALIAS##_insert_after(TYPE_ALIAS##_ptr_t p_sdlist, TYPE_ALIAS##_node_ptr_t p_node, NODE_DATA_T *p_node_data) {\
     TYPE_ALIAS##_node_ptr_t p_pivot, p_pivot_prev, p_pivot_next;\
-    int pivot_index, pivot_prev_index, pivot_next_indext;\
+    int pivot_index, pivot_prev_index, pivot_next_index;\
     if (TYPE_ALIAS##_is_full(p_sdlist)) {\
         return ESI_SDLIST_ERR_CAP;\
     }\
@@ -224,7 +251,7 @@ int TYPE_ALIAS##_insert_after(TYPE_ALIAS##_ptr_t p_sdlist, TYPE_ALIAS##_node_ptr
     p_pivot->prev = pivot_prev_index;\
     p_pivot_prev->next = pivot_index;\
     if (pivot_next_index != -1) {\
-        p_pivot_next = &(p_sdlist->repo_data[pivot_next_index]);\
+        p_pivot_next = &(p_sdlist->node_repo[pivot_next_index]);\
         p_pivot_next->prev = pivot_index;\
     } else {\
         p_pivot_next = NULL;\
@@ -234,7 +261,7 @@ int TYPE_ALIAS##_insert_after(TYPE_ALIAS##_ptr_t p_sdlist, TYPE_ALIAS##_node_ptr
 }\
 int TYPE_ALIAS##_insert_before(TYPE_ALIAS##_ptr_t p_sdlist, TYPE_ALIAS##_node_ptr_t p_node, NODE_DATA_T *p_node_data) {\
     TYPE_ALIAS##_node_ptr_t p_pivot, p_pivot_prev, p_pivot_next;\
-    int pivot_index, pivot_prev_index, pivot_next_indext;\
+    int pivot_index, pivot_prev_index, pivot_next_index;\
     if (TYPE_ALIAS##_is_full(p_sdlist)) {\
         return ESI_SDLIST_ERR_CAP;\
     }\
@@ -251,7 +278,7 @@ int TYPE_ALIAS##_insert_before(TYPE_ALIAS##_ptr_t p_sdlist, TYPE_ALIAS##_node_pt
     p_pivot->prev = pivot_prev_index;\
     p_pivot_next->prev = pivot_index;\
     if (pivot_prev_index != -1) {\
-        p_pivot_prev = &(p_sdlist->repo_data[pivot_prev_index]);\
+        p_pivot_prev = &(p_sdlist->node_repo[pivot_prev_index]);\
         p_pivot_prev->next = pivot_index;\
     } else {\
         p_pivot_prev = NULL;\
@@ -284,7 +311,7 @@ int TYPE_ALIAS##_push_front(TYPE_ALIAS##_ptr_t p_sdlist, NODE_DATA_T *p_node_dat
     }\
     return ESI_SDLIST_ERR_NONE;\
 }\
-int TYPE_ALIAS##_push_back(TYPE_ALIAS##_ptr_t, NODE_DATA_T *) {\
+int TYPE_ALIAS##_push_back(TYPE_ALIAS##_ptr_t p_sdlist, NODE_DATA_T *p_node_data) {\
     TYPE_ALIAS##_node_ptr_t p_pivot, p_pivot_prev;\
     int pivot_index, pivot_prev_index;\
     if (TYPE_ALIAS##_is_full(p_sdlist)) {\
@@ -364,7 +391,7 @@ int TYPE_ALIAS##_any_if(TYPE_ALIAS##_ptr_t p_sdlist, int(*predicate)(NODE_DATA_T
     }\
     return 0;\
 }\
-void TYPE_ALIAS##_for_each(TYPE_ALIAS##_ptr_t p_sdlist, void(*func)(NODE_DATA_T)) {\
+void TYPE_ALIAS##_for_each(TYPE_ALIAS##_ptr_t p_sdlist, void(*func)(NODE_DATA_T *)) {\
     TYPE_ALIAS##_node_ptr_t p_pivot = TYPE_ALIAS##_peek_front(p_sdlist);\
     while (p_pivot != NULL) {\
         func(&(p_pivot->node_data));\

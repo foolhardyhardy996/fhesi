@@ -8,14 +8,16 @@
  * we define "esi_err = esi_err_src :: esi_err_status"
  * 
  * @author Li Weida
- * @date 2023.05.17
+ * @date 2023.07.29
 */
+
+#include <stdint.h>
 
 /**
  * the definition of `esi_err_t` can be adjusted according custome needs
  * the only assumption is that, it should be of integeral type
 */
-typedef /* custome definition */ int esi_err_t;
+typedef int esi_err_t;
 
 /**
  * the following macros can be adjusted according to the underlying platform 
@@ -39,7 +41,7 @@ enum esi_err_src {
 };
 
 #define ESI_ERR_SRC_MSG {\
-    "none"\
+    "none" /*0*/\
 }
 
 enum esi_err_status {
@@ -47,7 +49,7 @@ enum esi_err_status {
 };
 
 #define ESI_ERR_STATUS_MSG {\
-    "none"\
+    "none" /*0*/\
 }
 
 /**
@@ -61,4 +63,4 @@ const char *esi_strerror(esi_err_t err);
 /**
  * you can customized the size of the static buffer used by `esi_strerror`
 */
-#define ESI_STRERROR_BUFSIZE /* customized buffer size */ (128)
+#define ESI_STRERROR_BUFSIZE /* customized buffer size */ (256)

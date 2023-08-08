@@ -1,311 +1,630 @@
 #pragma once 
 
 /**
- * @file esi_event.h
- * @brief "esi_event.h" provides abstraction to compose event loop
+ * @file esi_change_event.h
+ * @brief "esi_change_event.h" provides template for change event
  * 
  * 
  * 
  * @author Li Weida
- * @date 2023.06.26
+ * @date 2023.08.05
 */
 
-#include "esi_arr/esi_arr.h"
-#include "esi_ring/esi_ring.h"
+#include "esi_list/esi_sdlist.h"
+#include "esi_err/esi_err.h"
+#include "esi_functional/esi_functional.h"
 
 enum esi_event_err {
     ESI_EVENT_ERR_NONE = 0,
-    ESI_EVENT_ERR_EVENT_CAP = 1,
-    ESI_EVENT_ERR_EVENT_ID_COLLISON = 2,
-    ESI_EVENT_ERR_HANDLER_CAP = 3, 
-    ESI_EVENT_ERR_HANDLER_ID_COLLISON = 4
+    ESI_EVENTMON_ERR_CAP = 1,
+    ESI_EVENTMON_ERR_INVALID_ID = 2,
+    ESI_EVENTMON_ERR_INVALID_HDR = 3,
+    ESI_EVENT_ERR_UNKNOWN = 4
 };
 
 #define ESI_EVENT_ERR_MSG {\
     "esi_event: ok", /*0*/\
-    "esi_event_monitor: monitored events have reached capacity", /*1*/\
-    "esi_event_monitor: event id collides with monitered event's", /*2*/\
-    "esi_event_monitor: registered handlers have reached capacity", /*3*/\
-    "esi_event_monitor: handler id collides with registered handler's" /*4*/\
+    "esi_eventmon: capacity has been reached", /*1*/\
+    "esi_eventmon: invalid event id", /*2*/\
+    "esi_eventmon: invalid handler", /*3*/\
+    "esi_event: unknown error" /*4*/\
 }
 
 const char *esi_event_strerror(int err);
 
-#define ESI_TRIGGERED_EVENT_TYPE_DECL(TYPE_ALIAS, ARG_T) \
-struct esi_triggered_event_##ARG_T;\
-typedef struct esi_triggered_event_##ARG_T esi_triggered_event_##ARG_T##_st;\
-typedef esi_triggered_event_##ARG_T##_st TYPE_ALIAS;\
-typedef esi_triggered_event_##ARG_T##_st *TYPE_ALIAS##_ptr_t;\
-typedef ARG_T TYPE_ALIAS##_arg_t;\
-typedef ARG_T *TYPE_ALIAS##_arg_ptr_t;\
-struct esi_triggered_event_##ARG_T {\
-    int event_id;\
-    ARG_T event_arg;\
+#define ESI_CHANGE_EVENT_DECL(alias, blob_t, noti_t) \
+typedef blob_t alias##_blob_t;\
+typedef noti_t alias##_noti_t;\
+struct alias##_change_event;\
+typedef struct alias##_change_event alias;\
+typedef int (*alias##_poll_func_t)(alias *);\
+typedef void (*alias##_notify_func_t)(alias *, noti_t *);\
+struct alias##_change_event {\
+    blob_t blob;\
+    int (*poll)(alias *);\
+    void (*notify)(alias *, noti_t *);\
 };\
-int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t, int, TYPE_ALIAS##_arg_ptr_t);\
+esi_err_t alias##_init(alias *, blob_t *, alias##_poll_func_t, alias##_notify_func_t);\
+esi_err_t alias##_initWithAssign(alias *, blob_t *, ESI_ASSIGN_FUNC_T(blob_t, assign), alias##_poll_func_t, alias##_notify_func_t);\
+esi_err_t alias##_initWithEmplace(alias *, ESI_MODIFY_FUNC_T(blob_t, emplace), alias##_poll_func_t, alias##_notify_func_t);
 
-#define ESI_TRIGGERED_EVENT_INIT(EVENT_T, p_event, event_id, p_arg) EVENT_T##_init(p_event, event_id, p_arg)
-
-#define ESI_TRIGGERED_EVENT_TYPE_IMPL(TYPE_ALIAS, ARG_T) \
-int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t p_event, int event_id, TYPE_ALIAS##_arg_ptr_t p_arg) {\
-    p_event->event_id = event_id;\
-    p_event->event_arg = *p_arg;\
+#define ESI_CHANGE_EVENT_IMPL(alias, blob_t, noti_t) \
+esi_err_t alias##_init(alias *self, blob_t *blob, alias##_poll_func_t poll, alias##_notify_func_t notify) {\
+    self->blob = *blob;\
+    self->poll = poll;\
+    self->notify = notify;\
     return ESI_EVENT_ERR_NONE;\
 }\
-
-#define ESI_POLLED_EVENT_TYPE_DECL(TYPE_ALIAS, ARG_T) \
-struct esi_polled_event_##ARG_T;\
-typedef struct esi_polled_event_##ARG_T esi_polled_event_##ARG_T##_st;\
-typedef esi_polled_event_##ARG_T##_st TYPE_ALIAS;\
-typedef esi_polled_event_##ARG_T##_st *TYPE_ALIAS##_ptr_t;\
-typedef ARG_T TYPE_ALIAS##_arg_t;\
-typedef ARG_T *TYPE_ALIAS##_arg_ptr_t;\
-/* poll does two things: 1. maintain event state and invariant 2. return 1 when event occurred */\
-typedef int (*TYPE_ALIAS##_poll_func_t)(TYPE_ALIAS##_ptr_t);\
-struct esi_polled_event_##ARG_T {\
-    int event_id;\
-    ARG_T event_arg;\
-    TYPE_ALIAS##_poll_func_t poll;\
-};\
-int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t, int, TYPE_ALIAS##_arg_ptr_t, TYPE_ALIAS##_poll_func_t);\
-
-#define ESI_POLLED_EVENT_INIT(EVENT_T, p_event, event_id, p_arg, poll_func) EVENT_T##_init(p_event, event_id, p_arg, poll_func)
-
-#define ESI_POLLED_EVENT_TYPE_IMPL(TYPE_ALIAS, ARG_T) \
-int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t p_event, int event_id, TYPE_ALIAS##_arg_ptr_t p_arg, TYPE_ALIAS##_poll_func_t poll_func) {\
-    p_event->event_id = event_id;\
-    p_event->event_arg = *p_arg;\
-    p_event->poll = poll_func;\
+esi_err_t alias##_initWithAssign(alias *self, blob_t *blob, ESI_ASSIGN_FUNC_T(blob_t, assign), alias##_poll_func_t poll, alias##_notify_func_t notify) {\
+    assign(&(self->blob), blob);\
+    self->poll = poll;\
+    self->notify = notify;\
     return ESI_EVENT_ERR_NONE;\
 }\
+esi_err_t alias##_initWithEmplace(alias *self, ESI_MODIFY_FUNC_T(blob_t, emplace), alias##_poll_func_t poll, alias##_notify_func_t notify) {\
+    emplace(&(self->blob));\
+    self->poll = poll;\
+    self->notify = notify;\
+    return ESI_EVENT_ERR_NONE;\
+}
 
-#define ESI_CHRONIC_EVENT_TYPE_DECL(TYPE_ALIAS, ARG_T, TIMEREF_T) \
-struct esi_chronic_event_##ARG_T;\
-typedef struct esi_chronic_event_##ARG_T esi_chronic_event_##ARG_T##_st;\
-typedef esi_chronic_event_##ARG_T##_st TYPE_ALIAS;\
-typedef esi_chronic_event_##ARG_T##_st *TYPE_ALIAS##_ptr_t;\
-typedef int (*TYPE_ALIAS##_update_timeref_func_t)(TIMEREF_T *);\
-typedef int (*TYPE_ALIAS##_is_timed_out_func_t)(TIMEREF_T *, TIMEREF_T *);\
-typedef ARG_T TYPE_ALIAS##_arg_t;\
-typedef ARG_T *TYPE_ALIAS##_arg_ptr_t;\
-typedef TIMEREF_T TYPE_ALIAS##_timeref_t;\
-typedef TIMEREF_T *TYPE_ALIAS##_timeref_ptr_t;\
-struct esi_chronic_event_##ARG_T {\
-    int event_id;\
-    ARG_T event_arg;\
-    TIMEREF_T last_time_stamp;\
-    TIMEREF_T current_timeref;\
-    TYPE_ALIAS##_update_timeref_func_t update_timeref;\
-    TYPE_ALIAS##_is_timed_out_func_t is_timed_out;\
+#define ESI_TIME_EVENT_DECL(alias, blob_t, noti_t) \
+typedef blob_t alias##_blob_t;\
+typedef noti_t alias##_noti_t;\
+struct alias##_time_event;\
+typedef struct alias##_time_event alias;\
+typedef void (*alias##_update_func_t)(alias *);\
+typedef int (*alias##_check_func_t)(alias *);\
+typedef void (*alias##_notify_func_t)(alias *, noti_t *);\
+struct alias##_time_event {\
+    blob_t blob;\
+    void (*update)(alias *);\
+    int (*check)(alias *);\
+    void (*notify)(alias *, noti_t *);\
 };\
-int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t, int, TYPE_ALIAS##_arg_ptr_t, TYPE_ALIAS##_update_timeref_func_t, TYPE_ALIAS##_is_timed_out_func_t);\
+esi_err_t alias##_init(alias *, blob_t *, alias##_update_func_t, alias##_check_func_t, alias##_notify_func_t);\
+esi_err_t alias##_initWithAssign(alias *, blob_t *, ESI_ASSIGN_FUNC_T(blob_t, assign), alias##_update_func_t, alias##_check_func_t, alias##_notify_func_t);\
+esi_err_t alias##_initWithEmplace(alias *, ESI_MODIFY_FUNC_T(blob_t, emplace), alias##_update_func_t, alias##_check_func_t, alias##_notify_func_t);
 
-#define ESI_CHRONIC_EVENT_TIMEREF_T(EVENT_T) EVENT_T##_timeref_t
-
-#define ESI_CHRONIC_EVENT_INIT(EVENT_T, p_event, event_id, p_arg, update_timeref_func, is_timed_out_func) EVENT_T##_init(p_event, event_id, p_arg, update_timeref_func, is_timed_out_func)
-
-#define ESI_CHRONIC_EVENT_TYPE_IMPL(TYPE_ALIAS, ARG_T, TIMEREF_T) \
-int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t p_event, int event_id, TYPE_ALIAS##_arg_ptr_t p_arg, TYPE_ALIAS##_update_timeref_func_t update_timeref_func, TYPE_ALIAS##_is_timed_out_func_t is_timed_out_func) {\
-    p_event->event_id = event_id;\
-    p_event->event_arg = *p_arg;\
-    p_event->update_timeref = update_timeref_func;\
-    p_event->is_timed_out = is_timed_out_func;\
-    p_event->update_timeref(&(p_event->current_timeref));\
-    p_event->last_time_stamp = p_event->current_timeref;\
+#define ESI_TIME_EVENT_IMPL(alias, blob_t, noti_t) \
+esi_err_t alias##_init(alias *self, blob_t *blob, alias##_update_func_t update, alias##_check_func_t check, alias##_notify_func_t notify) {\
+    self->blob = *blob;\
+    self->update = update;\
+    self->check = check;\
+    self->notify = notify;\
     return ESI_EVENT_ERR_NONE;\
 }\
+esi_err_t alias##_initWithAssign(alias *self, blob_t *blob, ESI_ASSIGN_FUNC_T(blob_t, assign), alias##_update_func_t update, alias##_check_func_t check, alias##_notify_func_t notify) {\
+    assign(&(self->blob), blob);\
+    self->update = update;\
+    self->check = check;\
+    self->notify = notify;\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_initWithEmplace(alias *self, ESI_MODIFY_FUNC_T(blob_t, emplace), alias##_update_func_t update, alias##_check_func_t check, alias##_notify_func_t notify) {\
+    emplace(&(self->blob));\
+    self->update = update;\
+    self->check = check;\
+    self->notify = notify;\
+    return ESI_EVENT_ERR_NONE;\
+}
 
-#define ESI_EVENT_ARG_T(EVENT_T) EVENT_T##_arg_t;
+#define ESI_EMSG_EVENT_DECL(alias, blob_t, emsg_t) \
+typedef blob_t alias##_blob_t;\
+typedef emsg_t alias##_emsg_t;\
+typedef emsg_t##_noti_t alias##_noti_t;\
+struct alias##_emsg_event;\
+typedef struct alias##_emsg_event alias;\
+typedef void (*alias##_notify_func_t)(alias *, alias##_noti_t *);\
+struct alias##_emsg_event {\
+    blob_t blob;\
+    void (*notify)(alias *, alias##_noti_t *);\
+};\
+esi_err_t alias##_init(alias *, blob_t *, alias##_notify_func_t);\
+esi_err_t alias##_initWithAssign(alias *, blob_t *, ESI_ASSIGN_FUNC_T(blob_t, assign), alias##_notify_func_t);\
+esi_err_t alias##_initWithEmplace(alias *, ESI_MODIFY_FUNC_T(blob_t, emplace), alias##_notify_func_t);
 
-typedef void (*esi_event_handler_func_t)(void *);
-struct esi_event_handler {
-    int handler_id;
-    int event_id;
-    esi_event_handler_func_t handler_func;
-};
-typedef struct esi_event_handler esi_event_handler_t;
-int esi_event_handler_init(esi_event_handler_t *p_handler, int handler_id, int event_id, esi_event_handler_func_t handler_func);
+#define ESI_EMSG_EVENT_IMPL(alias, blob_t, emsg_t) \
+esi_err_t alias##_init(alias *self, blob_t *blob, alias##_notify_func_t notify) {\
+    self->blob = *blob;\
+    self->notify = notify;\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_initWithAssign(alias *self, blob_t *blob, ESI_ASSIGN_FUNC_T(blob_t, assign), alias##_notify_func_t notify) {\
+    assign(&(self->blob), blob);\
+    self->notify = notify;\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_initWithEmplace(alias *self, ESI_MODIFY_FUNC_T(blob_t, emplace), alias##_notify_func_t notify) {\
+    emplace(&(self->blob));\
+    self->notify = notify;\
+    return ESI_EVENT_ERR_NONE;\
+}
 
-#define ESI_EVENT_MONITOR_TYPE_DECL(TYPE_ALIAS, TRIGGERED_EVENT_T, TRIGGERED_EVENT_CAP, POLLED_EVENT_T, POLLED_EVENT_CAP, CHRONIC_EVENT_T, CHRONIC_EVENT_CAP, HANDLER_CAP) \
-struct esi_event_monitor_##TYPE_ALIAS;\
-typedef struct esi_event_monitor_##TYPE_ALIAS TYPE_ALIAS;\
-typedef TYPE_ALIAS *TYPE_ALIAS##_ptr_t;\
-typedef esi_event_handler_func_t TYPE_ALIAS##_event_handler_func_t;\
-typedef esi_event_handler_t TYPE_ALIAS##_event_handler_t;\
-typedef TYPE_ALIAS##_event_handler_t *TYPE_ALIAS##_event_handler_ptr_t;\
-/* supporting array and queue types */\
-ESI_RING_TYPE_DECL(TYPE_ALIAS##_triggered_event_queue_t, TRIGGERED_EVENT_T, TRIGGERED_EVENT_CAP);\
-ESI_ARR_TYPE_DECL(TYPE_ALIAS##_polled_event_list_t, POLLED_EVENT_T, POLLED_EVENT_CAP);\
-ESI_ARR_TYPE_DECL(TYPE_ALIAS##_chronic_event_list_t, CHRONIC_EVENT_T, CHRONIC_EVENT_CAP);\
-ESI_ARR_TYPE_DECL(TYPE_ALIAS##_event_handler_list_t, TYPE_ALIAS##_event_handler_t, HANDLER_CAP);\
-struct esi_event_monitor_##TYPE_ALIAS {\
-    TYPE_ALIAS##_triggered_event_queue_t triggered_event_queue;\
-    TYPE_ALIAS##_polled_event_list_t polled_event_list;\
-    TYPE_ALIAS##_chronic_event_list_t chronic_event_list;\
-    TYPE_ALIAS##_event_handler_list_t event_handler_list;\
+#define ESI_EMSG_DECL(alias, noti_t) \
+typedef noti_t alias##_noti_t;\
+struct alias##_emsg {\
+    int event_id;\
+    noti_t noti;\
+};\
+typedef struct alias##_emsg alias;
+
+/**
+ * eventmon hosts four kinds of object repositories:
+ * 1. three kinds of event
+ * 2. handler control block
+ * 3. message
+*/
+#define ESI_EVENTMON_DECL(alias, ce_t, te_t, me_t, event_cap, emsg_cap) \
+typedef ce_t alias##_change_event_t;\
+typedef te_t alias##_time_event_t;\
+typedef me_t alias##_emsg_event_t;\
+extern const int alias##_event_cap;\
+extern const int alias##_emsg_queue_cap;\
+struct alias##_eventmon;\
+typedef struct alias##_eventmon alias;\
+enum alias##_event_type {\
+    alias##_ce_type,\
+    alias##_te_type,\
+    alias##_me_type\
+};\
+typedef ESI_MODIFY_FUNC_T(ce_t, alias##_ce_modifier_t);\
+typedef ESI_MODIFY_FUNC_T(te_t, alias##_te_modifier_t);\
+typedef ESI_MODIFY_FUNC_T(me_t, alias##_me_modifier_t);\
+union alias##_event {\
+    ce_t ce;\
+    te_t te;\
+    me_t me;\
+};\
+typedef union alias##_event alias##_event_t;\
+union alias##_noti {\
+    ce_t##_noti_t cenoti;\
+    te_t##_noti_t tenoti;\
+    me_t##_noti_t menoti;\
+};\
+typedef union alias##_noti alias##_noti_t;\
+typedef void (*alias##_cehdr_t)(ce_t *, ce_t##_noti_t *);\
+typedef void (*alias##_tehdr_t)(te_t *, te_t##_noti_t *);\
+typedef void (*alias##_mehdr_t)(me_t *, me_t##_noti_t *);\
+union alias##_hdr {\
+    alias##_cehdr_t cehdr;\
+    alias##_tehdr_t tehdr;\
+    alias##_mehdr_t mehdr;\
+};\
+typedef union alias##_hdr alias##_hdr_t;\
+struct alias##_eventcb {\
+    int event_type;\
+    alias##_event_t event;\
+    alias##_hdr_t hdr;\
+    int free_flag;\
+};\
+typedef struct alias##_eventcb alias##_eventcb_t;\
+ESI_SDLIST_DECL(alias##_eventcb_repo_t, alias##_eventcb_t, event_cap)\
+ESI_SDLIST_DECL(alias##_emsg_queue_t, me_t##_emsg_t, emsg_cap)\
+struct alias##_eventmon {\
+    alias##_eventcb_repo_t eventcb_repo;\
+    alias##_emsg_queue_t emsg_queue;\
     int stop_flag;\
 };\
-typedef TRIGGERED_EVENT_T TYPE_ALIAS##_triggered_event_t;\
-typedef TRIGGERED_EVENT_T *TYPE_ALIAS##_triggered_event_ptr_t;\
-typedef POLLED_EVENT_T TYPE_ALIAS##_polled_event_t;\
-typedef POLLED_EVENT_T *TYPE_ALIAS##_polled_event_ptr_t;\
-typedef CHRONIC_EVENT_T TYPE_ALIAS##_chronic_event_t;\
-typedef CHRONIC_EVENT_T *TYPE_ALIAS##_chronic_event_ptr_t;\
-int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t);\
-int TYPE_ALIAS##_trigger_event(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_triggered_event_ptr_t);\
-int TYPE_ALIAS##_register_polled_event(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_polled_event_ptr_t);\
-int TYPE_ALIAS##_register_chronic_event(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_chronic_event_ptr_t);\
-int TYPE_ALIAS##_register_event_handler(TYPE_ALIAS##_ptr_t, TYPE_ALIAS##_event_handler_ptr_t);\
-int TYPE_ALIAS##_loop(TYPE_ALIAS##_ptr_t);\
-int TYPE_ALIAS##_stop(TYPE_ALIAS##_ptr_t);\
+esi_err_t alias##_init(alias *);\
+esi_err_t alias##_registerChangeEvent(alias *, ce_t *, alias##_cehdr_t, int *);\
+esi_err_t alias##_registerChangeEventWithAssign(alias *, ce_t *, ESI_ASSIGN_FUNC_T(ce_t, assign), alias##_cehdr_t, int *);\
+esi_err_t alias##_registerChangeEventWithEmplace(alias *, ESI_MODIFY_FUNC_T(ce_t, emplace), alias##_cehdr_t, int *);\
+esi_err_t alias##_setChangeEventHandler(alias *, int, alias##_cehdr_t, alias##_cehdr_t *);\
+esi_err_t alias##_unregisterChangeEvent(alias *, int);\
+esi_err_t alias##_registerTimeEvent(alias *, te_t *, alias##_tehdr_t, int *);\
+esi_err_t alias##_registerTimeEventWithAssign(alias *, te_t *, ESI_ASSIGN_FUNC_T(te_t, assign), alias##_tehdr_t, int *);\
+esi_err_t alias##_registerTimeEventWithEmplace(alias *, ESI_MODIFY_FUNC_T(te_t, emplace), alias##_tehdr_t, int *);\
+esi_err_t alias##_setTimeEventHandler(alias *, int, alias##_tehdr_t, alias##_tehdr_t *);\
+esi_err_t alias##_unregisterTimeEvent(alias *, int);\
+esi_err_t alias##_registerMessageEvent(alias *, me_t *, alias##_mehdr_t, int *);\
+esi_err_t alias##_registerMessageEventWithAssign(alias *, me_t *, ESI_ASSIGN_FUNC_T(me_t, assign), alias##_mehdr_t, int *);\
+esi_err_t alias##_registerMessageEventWithEmplace(alias *, ESI_MODIFY_FUNC_T(me_t, emplace), alias##_mehdr_t, int *);\
+esi_err_t alias##_setMessageEventHandler(alias *, int, alias##_mehdr_t, alias##_mehdr_t *);\
+esi_err_t alias##_unregisterMessageEvent(alias *, int);\
+esi_err_t alias##_addMessage(alias *, me_t##_emsg_t *);\
+esi_err_t alias##_addMessageWithAssign(alias *, me_t##_emsg_t *, ESI_ASSIGN_FUNC_T(me_t##_emsg_t, assign));\
+esi_err_t alias##_addMessageWithEmplace(alias *, ESI_MODIFY_FUNC_T(me_t##_emsg_t, emplace));\
+esi_err_t alias##_startLoop(alias *);\
+esi_err_t alias##_stopLoop(alias *);\
 
-#define ESI_EVENT_MONITOR_TRIGGERED_EVENT_QUEUE_T(MONITOR_T) MONITOR_T##_triggered_event_queue_t
-#define ESI_EVENT_MONITOR_POLLED_EVENT_LIST_T(MONITOR_T) MONITOR_T##_polled_event_list_t
-#define ESI_EVENT_MONITOR_CHRONIC_EVENT_LIST_T(MONITOR_T) MONITOR_T##_chronic_event_list_t
-
-#define ESI_EVENT_MONITOR_INIT(MONITOR_T, p_monitor) MONITOR_T##_init(p_monitor)
-#define ESI_EVENT_MONITOR_TRIGGER_EVENT(MONITOR_T, p_monitor, p_event) MONITOR_T##_trigger_event(p_monitor, p_event)
-#define ESI_EVENT_MONITOR_REGISTER_POLLED_EVENT(MONITOR_T, p_monitor, p_event) MONITOR_T##_register_polled_event(p_monitor, p_event)
-#define ESI_EVENT_MONITOR_REGISTER_CHRONIC_EVENT(MONITOR_T, p_monitor, p_event) MONITOR_T##_register_chronic_event(p_monitor, p_event)
-#define ESI_EVENT_MONITOR_REGISTER_EVENT_HANDLER(MONITOR_T, p_monitor, p_handler) MONITOR_T##_register_event_handler(p_monitor, p_handler)
-#define ESI_EVENT_MONITOR_LOOP(MONITOR_T, p_monitor) MONITOR_T##_loop(p_monitor)
-#define ESI_EVENT_MONITOR_STOP(MONITOR_T, p_monitor) MONITOR_T##_stop(p_monitor)
-
-#define ESI_EVENT_MONITOR_TYPE_IMPL(TYPE_ALIAS, TRIGGERED_EVENT_T, TRIGGERED_EVENT_CAP, POLLED_EVENT_T, POLLED_EVENT_CAP, CHRONIC_EVENT_T, CHRONIC_EVENT_CAP, HANDLER_CAP) \
-/* supporting array and queue types implementation */\
-static int TRIGGERED_EVENT_T##_eq(TRIGGERED_EVENT_T *, TRIGGERED_EVENT_T *);\
-static int TRIGGERED_EVENT_T##_eq(TRIGGERED_EVENT_T * p_event1, TRIGGERED_EVENT_T * p_event2) {\
-    return p_event1->event_id == p_event2->event_id;\
-}\
-ESI_RING_TYPE_IMPL_WITH_EQ(TYPE_ALIAS##_triggered_event_queue_t, TRIGGERED_EVENT_T, TRIGGERED_EVENT_CAP, TRIGGERED_EVENT_T##_eq);\
-static int POLLED_EVENT_T##_eq(POLLED_EVENT_T *, POLLED_EVENT_T *);\
-static int POLLED_EVENT_T##_eq(POLLED_EVENT_T * p_event1, POLLED_EVENT_T * p_event2) {\
-    return p_event1->event_id == p_event2->event_id;\
-}\
-ESI_ARR_TYPE_IMPL_WITH_EQ(TYPE_ALIAS##_polled_event_list_t, POLLED_EVENT_T, POLLED_EVENT_CAP, POLLED_EVENT_T##_eq);\
-static int CHRONIC_EVENT_T##_eq(CHRONIC_EVENT_T *, CHRONIC_EVENT_T *);\
-static int CHRONIC_EVENT_T##_eq(CHRONIC_EVENT_T * p_event1, CHRONIC_EVENT_T * p_event2) {\
-    return p_event1->event_id == p_event2->event_id;\
-}\
-ESI_ARR_TYPE_IMPL_WITH_EQ(TYPE_ALIAS##_chronic_event_list_t, CHRONIC_EVENT_T, CHRONIC_EVENT_CAP, CHRONIC_EVENT_T##_eq);\
-static int TYPE_ALIAS##_event_handler_t##_eq(TYPE_ALIAS##_event_handler_t *, TYPE_ALIAS##_event_handler_t *);\
-static int TYPE_ALIAS##_event_handler_t##_eq(TYPE_ALIAS##_event_handler_t * p_handler1, TYPE_ALIAS##_event_handler_t * p_handler2) {\
-    return p_handler1->handler_id == p_handler2->handler_id;\
-}\
-ESI_ARR_TYPE_IMPL_WITH_EQ(TYPE_ALIAS##_event_handler_list_t, TYPE_ALIAS##_event_handler_t, HANDLER_CAP, TYPE_ALIAS##_event_handler_t##_eq);\
-int TYPE_ALIAS##_init(TYPE_ALIAS##_ptr_t p_monitor) {\
-    p_monitor->triggered_event_queue.head = 0;\
-    p_monitor->triggered_event_queue.tail = 0;\
-    p_monitor->polled_event_list.size = 0;\
-    p_monitor->chronic_event_list.size = 0;\
-    p_monitor->event_handler_list.size = 0;\
-    p_monitor->stop_flag = 0;\
-    return ESI_EVENT_ERR_NONE;\
-}\
-static int TYPE_ALIAS##_preset_event_id;\
-static int TYPE_ALIAS##_polled_event_id_equal_preset_one(TYPE_ALIAS##_polled_event_ptr_t);\
-static int TYPE_ALIAS##_polled_event_id_equal_preset_one(TYPE_ALIAS##_polled_event_ptr_t p_event) {\
-    return p_event->event_id == TYPE_ALIAS##_preset_event_id;\
-}\
-static int TYPE_ALIAS##_chronic_event_id_equal_preset_one(TYPE_ALIAS##_chronic_event_ptr_t);\
-static int TYPE_ALIAS##_chronic_event_id_equal_preset_one(TYPE_ALIAS##_chronic_event_ptr_t p_event) {\
-    return p_event->event_id == TYPE_ALIAS##_preset_event_id;\
-}\
-int TYPE_ALIAS##_trigger_event(TYPE_ALIAS##_ptr_t p_monitor, TYPE_ALIAS##_triggered_event_ptr_t p_event) {\
-    if (ESI_RING_IS_FULL(TYPE_ALIAS##_triggered_event_queue_t, &(p_monitor->triggered_event_queue))) {\
-        return ESI_EVENT_ERR_EVENT_CAP;\
+#define ESI_EVENTMON_IMPL(alias, ce_t, te_t, me_t, event_cap, emsg_cap) \
+const int alias##_event_cap = event_cap;\
+const int alias##_emsg_queue_cap = emsg_cap;\
+ESI_SDLIST_IMPL(alias##_eventcb_repo_t, alias##_eventcb_t, event_cap)\
+ESI_SDLIST_IMPL(alias##_emsg_queue_t, me_t##_emsg_t, emsg_cap)\
+static int alias##_validateEventId(alias *, int);\
+static int alias##_validateEventId(alias *self, int event_id) {\
+    if (event_id < 0 || event_id >= event_cap) {\
+        return 0;\
     }\
-    ESI_RING_PUSH_BACK(TYPE_ALIAS##_triggered_event_queue_t, &(p_monitor->triggered_event_queue), p_event);\
-    return ESI_EVENT_ERR_NONE;\
+    return self->eventcb_repo.repo[event_id].elem.free_flag == 0;\
 }\
-int TYPE_ALIAS##_register_polled_event(TYPE_ALIAS##_ptr_t p_monitor, TYPE_ALIAS##_polled_event_ptr_t p_event) {\
-    if (ESI_ARR_IS_FULL(TYPE_ALIAS##_polled_event_list_t, &(p_monitor->polled_event_list))) {\
-        return ESI_EVENT_ERR_EVENT_CAP;\
-    }\
-    TYPE_ALIAS##_preset_event_id = p_event->event_id;\
-    if (ESI_ARR_ANY(TYPE_ALIAS##_polled_event_list_t, &(p_monitor->polled_event_list), TYPE_ALIAS##_polled_event_id_equal_preset_one)) {\
-        return ESI_EVENT_ERR_EVENT_ID_COLLISON;\
-    }\
-    ESI_ARR_APPEND(TYPE_ALIAS##_polled_event_list_t, &(p_monitor->polled_event_list), p_event);\
-    return ESI_EVENT_ERR_NONE;\
+/** It reminds me to construct some function object later. */\
+static void alias##_emplaceEventcb_ce_assign(ce_t *, ce_t *);\
+static void alias##_emplaceEventcb_ce_assign(ce_t *dest, ce_t *src) {\
+    *dest = *src;\
 }\
-int TYPE_ALIAS##_register_chronic_event(TYPE_ALIAS##_ptr_t p_monitor, TYPE_ALIAS##_chronic_event_ptr_t p_event) {\
-    if (ESI_ARR_IS_FULL(TYPE_ALIAS##_chronic_event_list_t, &(p_monitor->chronic_event_list))) {\
-        return ESI_EVENT_ERR_EVENT_CAP;\
-    }\
-    TYPE_ALIAS##_preset_event_id = p_event->event_id;\
-    if (ESI_ARR_ANY(TYPE_ALIAS##_chronic_event_list_t, &(p_monitor->chronic_event_list), TYPE_ALIAS##_chronic_event_id_equal_preset_one)) {\
-        return ESI_EVENT_ERR_EVENT_ID_COLLISON;\
-    }\
-    ESI_ARR_APPEND(TYPE_ALIAS##_chronic_event_list_t, &(p_monitor->chronic_event_list), p_event);\
-    return ESI_EVENT_ERR_NONE;\
+static void alias##_emplaceEventcb_te_assign(te_t *, te_t *);\
+static void alias##_emplaceEventcb_te_assign(te_t *dest, te_t *src) {\
+    *dest = *src;\
 }\
-static int TYPE_ALIAS##_preset_handler_id;\
-static int TYPE_ALIAS##_handler_id_equal_preset_one(TYPE_ALIAS##_event_handler_ptr_t);\
-static int TYPE_ALIAS##_handler_id_equal_preset_one(TYPE_ALIAS##_event_handler_ptr_t p_handler) {\
-    return p_handler->handler_id == TYPE_ALIAS##_preset_handler_id;\
+static void alias##_emplaceEventcb_me_assign(me_t *, me_t *);\
+static void alias##_emplaceEventcb_me_assign(me_t *dest, me_t *src) {\
+    *dest = *src;\
 }\
-int TYPE_ALIAS##_register_event_handler(TYPE_ALIAS##_ptr_t p_monitor, TYPE_ALIAS##_event_handler_ptr_t p_handler) {\
-    if (ESI_ARR_IS_FULL(TYPE_ALIAS##_event_handler_list_t, &(p_monitor->event_handler_list))) {\
-        return ESI_EVENT_ERR_HANDLER_CAP;\
-    }\
-    TYPE_ALIAS##_preset_handler_id = p_handler->handler_id;\
-    if (ESI_ARR_ANY(TYPE_ALIAS##_event_handler_list_t, &(p_monitor->event_handler_list), TYPE_ALIAS##_handler_id_equal_preset_one)) {\
-        return ESI_EVENT_ERR_HANDLER_ID_COLLISON;\
-    }\
-    ESI_ARR_APPEND(TYPE_ALIAS##_event_handler_list_t, &(p_monitor->event_handler_list), p_handler);\
-    return ESI_EVENT_ERR_NONE;\
+static ESI_ASSIGN_FUNC_T(ce_t, alias##_emplaceEventcb_ce_emplaceWithAssign_assign);\
+static ce_t *alias##_emplaceEventcb_ce_emplaceWithAssign_src;\
+static void alias##_emplaceEventcb_ce_emplaceWithAssign(ce_t *);\
+static void alias##_emplaceEventcb_ce_emplaceWithAssign(ce_t *dest) {\
+    alias##_emplaceEventcb_ce_emplaceWithAssign_assign(dest, alias##_emplaceEventcb_ce_emplaceWithAssign_src);\
 }\
-/* supporting inner function for looping over triggered event queue */\
-static int TYPE_ALIAS##_call_handler_event_id;\
-static void *TYPE_ALIAS##_call_handler_event_holder;\
-static void TYPE_ALIAS##_call_handler(int, TYPE_ALIAS##_event_handler_ptr_t);\
-static void TYPE_ALIAS##_call_handler(int index, TYPE_ALIAS##_event_handler_ptr_t p_handler) {\
-    if (p_handler->event_id == TYPE_ALIAS##_call_handler_event_id) {\
-        p_handler->handler_func(TYPE_ALIAS##_call_handler_event_holder);\
+static ESI_ASSIGN_FUNC_T(te_t, alias##_emplaceEventcb_te_emplaceWithAssign_assign);\
+static te_t *alias##_emplaceEventcb_te_emplaceWithAssign_src;\
+static void alias##_emplaceEventcb_te_emplaceWithAssign(te_t *);\
+static void alias##_emplaceEventcb_te_emplaceWithAssign(te_t *dest) {\
+    alias##_emplaceEventcb_te_emplaceWithAssign_assign(dest, alias##_emplaceEventcb_te_emplaceWithAssign_src);\
+}\
+static ESI_ASSIGN_FUNC_T(me_t, alias##_emplaceEventcb_me_emplaceWithAssign_assign);\
+static me_t *alias##_emplaceEventcb_me_emplaceWithAssign_src;\
+static void alias##_emplaceEventcb_me_emplaceWithAssign(me_t *);\
+static void alias##_emplaceEventcb_me_emplaceWithAssign(me_t *dest) {\
+    alias##_emplaceEventcb_me_emplaceWithAssign_assign(dest, alias##_emplaceEventcb_me_emplaceWithAssign_src);\
+}\
+static int alias##_emplaceEventcb_event_type;\
+static ESI_MODIFY_FUNC_T(ce_t, alias##_emplaceEventcb_ce_emplace);\
+static ESI_MODIFY_FUNC_T(te_t, alias##_emplaceEventcb_te_emplace);\
+static ESI_MODIFY_FUNC_T(me_t, alias##_emplaceEventcb_me_emplace);\
+static alias##_cehdr_t alias##_emplaceEventcb_cehdr;\
+static alias##_tehdr_t alias##_emplaceEventcb_tehdr;\
+static alias##_mehdr_t alias##_emplaceEventcb_mehdr;\
+void alias##_emplaceEventcb(alias##_eventcb_t *);\
+void alias##_emplaceEventcb(alias##_eventcb_t *eventcb) {\
+    eventcb->free_flag = 0;\
+    eventcb->event_type = alias##_emplaceEventcb_event_type;\
+    switch (alias##_emplaceEventcb_event_type) {\
+    case alias##_ce_type: \
+        alias##_emplaceEventcb_ce_emplace(&(eventcb->event.ce));\
+        eventcb->hdr.cehdr = alias##_emplaceEventcb_cehdr;\
+        break;\
+    case alias##_te_type: \
+        alias##_emplaceEventcb_te_emplace(&(eventcb->event.te));\
+        eventcb->hdr.tehdr = alias##_emplaceEventcb_tehdr;\
+        break;\
+    case alias##_me_type: \
+        alias##_emplaceEventcb_me_emplace(&(eventcb->event.me));\
+        eventcb->hdr.mehdr = alias##_emplaceEventcb_mehdr;\
+        break;\
     }\
 }\
-/* supporting inner function for looping over polled event list */\
-static TYPE_ALIAS##_event_handler_list_t *TYPE_ALIAS##_poll_and_handle_handler_list;\
-static void TYPE_ALIAS##_poll_and_handle(int, TYPE_ALIAS##_polled_event_ptr_t);\
-static void TYPE_ALIAS##_poll_and_handle(int index, TYPE_ALIAS##_polled_event_ptr_t p_event) {\
-    if (p_event->poll(p_event)) {\
-        TYPE_ALIAS##_call_handler_event_holder = (void *) p_event;\
-        TYPE_ALIAS##_call_handler_event_id = p_event->event_id;\
-        ESI_ARR_FOR_EACH_ELEM(TYPE_ALIAS##_event_handler_list_t, TYPE_ALIAS##_poll_and_handle_handler_list, TYPE_ALIAS##_call_handler);\
+static void alias##_configEventcbEmplacer(int, void *, void *);\
+static void alias##_configEventcbEmplacer(int event_type, void *event_emplacer, void *hdr) {\
+    alias##_emplaceEventcb_event_type = event_type;\
+    switch (event_type) {\
+    case alias##_ce_type: \
+        alias##_emplaceEventcb_ce_emplace = (alias##_ce_modifier_t) event_emplacer;\
+        alias##_emplaceEventcb_cehdr = (alias##_cehdr_t) hdr;\
+        break;\
+    case alias##_te_type: \
+        alias##_emplaceEventcb_te_emplace = (alias##_te_modifier_t) event_emplacer;\
+        alias##_emplaceEventcb_tehdr = (alias##_tehdr_t) hdr;\
+        break;\
+    case alias##_me_type: \
+        alias##_emplaceEventcb_me_emplace = (alias##_me_modifier_t) event_emplacer;\
+        alias##_emplaceEventcb_mehdr = (alias##_mehdr_t) hdr;\
+        break;\
     }\
 }\
-static TYPE_ALIAS##_event_handler_list_t *TYPE_ALIAS##_handle_chronic_event_handler_list;\
-static void TYPE_ALIAS##_handle_chronic_event(int, TYPE_ALIAS##_chronic_event_ptr_t);\
-static void TYPE_ALIAS##_handle_chronic_event(int index, TYPE_ALIAS##_chronic_event_ptr_t p_event) {\
-    /* update timeref, determine whether timed out */\
-    p_event->update_timeref(&(p_event->current_timeref));\
-    if (p_event->is_timed_out(&(p_event->current_timeref), &(p_event->last_time_stamp))) {\
-        p_event->last_time_stamp = p_event->current_timeref;\
-        TYPE_ALIAS##_call_handler_event_holder = (void *) p_event;\
-        TYPE_ALIAS##_call_handler_event_id = p_event->event_id;\
-        ESI_ARR_FOR_EACH_ELEM(TYPE_ALIAS##_event_handler_list_t, TYPE_ALIAS##_handle_chronic_event_handler_list, TYPE_ALIAS##_call_handler);\
+static esi_err_t alias##_repoErr2EventmonErr(int);\
+static esi_err_t alias##_repoErr2EventmonErr(int err) {\
+    switch (err) {\
+    case ESI_SDLIST_ERR_CAP: \
+        return ESI_EVENTMON_ERR_CAP;\
+    default:\
+        return ESI_EVENT_ERR_UNKNOWN;\
     }\
 }\
-int TYPE_ALIAS##_loop(TYPE_ALIAS##_ptr_t p_monitor) {\
-    while (p_monitor->stop_flag == 0) {\
-        /* handle triggered events */\
-        while (!ESI_RING_IS_EMPTY(TYPE_ALIAS##_triggered_event_queue_t, &(p_monitor->triggered_event_queue))) {\
-            TYPE_ALIAS##_call_handler_event_holder = (void *) &(ESI_RING_PEEK_FRONT(TYPE_ALIAS##_triggered_event_queue_t, &(p_monitor->triggered_event_queue)));\
-            TYPE_ALIAS##_call_handler_event_id = ESI_RING_PEEK_FRONT(TYPE_ALIAS##_triggered_event_queue_t, &(p_monitor->triggered_event_queue)).event_id;\
-            ESI_ARR_FOR_EACH_ELEM(TYPE_ALIAS##_event_handler_list_t, &(p_monitor->event_handler_list), TYPE_ALIAS##_call_handler);\
-            ESI_RING_POP_FRONT(TYPE_ALIAS##_triggered_event_queue_t, &(p_monitor->triggered_event_queue));\
+static void alias##_handleChangeEvent(ce_t *, alias##_cehdr_t);\
+static void alias##_handleChangeEvent(ce_t *ce, alias##_cehdr_t hdr) {\
+    if (ce->poll(ce)) {\
+        ce_t##_noti_t noti;\
+        ce->notify(ce, &noti);\
+        hdr(ce, &noti);\
+    }\
+}\
+static void alias##_handleTimeEvent(te_t *, alias##_tehdr_t);\
+static void alias##_handleTimeEvent(te_t *te, alias##_tehdr_t hdr) {\
+    te->update(te);\
+    if (te->check(te)) {\
+        te_t##_noti_t noti;\
+        te->notify(te, &noti);\
+        hdr(te, &noti);\
+    }\
+}\
+static void alias##_iterateChangeEventAndTimeEvent(alias *);\
+static void alias##_iterateChangeEventAndTimeEvent(alias *self) {\
+    alias##_eventcb_repo_t_node_t *node;\
+    alias##_eventcb_t *eventcb;\
+    node = alias##_eventcb_repo_t_peekFront(&(self->eventcb_repo));\
+    while (node != NULL) {\
+        eventcb = &(node->elem);\
+        if (eventcb->event_type == alias##_ce_type) {\
+            alias##_handleChangeEvent(&(eventcb->event.ce), eventcb->hdr.cehdr);\
+        } else if (eventcb->event_type == alias##_te_type) {\
+            alias##_handleTimeEvent(&(eventcb->event.te), eventcb->hdr.tehdr);\
+        } else {\
+            break;\
         }\
-        /* poll polled events and handle if needed */\
-        TYPE_ALIAS##_poll_and_handle_handler_list = &(p_monitor->event_handler_list);\
-        ESI_ARR_FOR_EACH_ELEM(TYPE_ALIAS##_polled_event_list_t, &(p_monitor->polled_event_list), TYPE_ALIAS##_poll_and_handle);\
-        /* update timeref for chronic events and handle if needed */\
-        TYPE_ALIAS##_handle_chronic_event_handler_list = &(p_monitor->event_handler_list);\
-        ESI_ARR_FOR_EACH_ELEM(TYPE_ALIAS##_chronic_event_list_t, &(p_monitor->chronic_event_list), TYPE_ALIAS##_handle_chronic_event);\
+        node = alias##_eventcb_repo_t_getNext(&(self->eventcb_repo), node);\
+    }\
+}\
+static void alias##_iterateMessageQueue(alias *);\
+static void alias##_iterateMessageQueue(alias *self) {\
+    alias##_emsg_queue_t_node_t *node;\
+    me_t##_emsg_t *emsg;\
+    int event_id;\
+    me_t##_noti_t *noti;\
+    me_t *me;\
+    alias##_mehdr_t hdr;\
+    node = alias##_emsg_queue_t_peekBack(&(self->emsg_queue));\
+    while (node != NULL) {\
+        emsg = &(node->elem);\
+        event_id = emsg->event_id;\
+        noti = &(emsg->noti);\
+        me = &(self->eventcb_repo.repo[event_id].elem.event.me);\
+        hdr = self->eventcb_repo.repo[event_id].elem.hdr.mehdr;\
+        me->notify(me, noti);\
+        hdr(me, noti);\
+        alias##_emsg_queue_t_delete(&(self->emsg_queue), node);\
+        node = alias##_emsg_queue_t_peekBack(&(self->emsg_queue));\
+    }\
+}\
+esi_err_t alias##_init(alias *self) {\
+    int i = 0;\
+    alias##_eventcb_repo_t_init(&(self->eventcb_repo));\
+    for (i = 0; i < alias##_eventcb_repo_t_cap; i++) {\
+        self->eventcb_repo.repo[i].elem.free_flag = 1;\
+    }\
+    alias##_emsg_queue_t_init(&(self->emsg_queue));\
+    self->stop_flag = 0;\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_registerChangeEvent(alias *self, ce_t *ce, alias##_cehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_emplaceEventcb_ce_emplaceWithAssign_assign = alias##_emplaceEventcb_ce_assign;\
+    alias##_emplaceEventcb_ce_emplaceWithAssign_src = ce;\
+    alias##_configEventcbEmplacer(alias##_ce_type, (void *) alias##_emplaceEventcb_ce_emplaceWithAssign, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceFront(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.head;\
     }\
     return ESI_EVENT_ERR_NONE;\
 }\
-int TYPE_ALIAS##_stop(TYPE_ALIAS##_ptr_t p_monitor) {\
-    p_monitor->stop_flag = 1;\
+esi_err_t alias##_registerChangeEventWithAssign(alias *self, ce_t *ce, ESI_ASSIGN_FUNC_T(ce_t, assign), alias##_cehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_emplaceEventcb_ce_emplaceWithAssign_assign = assign;\
+    alias##_emplaceEventcb_ce_emplaceWithAssign_src = ce;\
+    alias##_configEventcbEmplacer(alias##_ce_type, (void *) alias##_emplaceEventcb_ce_emplaceWithAssign, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceFront(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.head;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_registerChangeEventWithEmplace(alias *self, ESI_MODIFY_FUNC_T(ce_t, emplace), alias##_cehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_configEventcbEmplacer(alias##_ce_type, (void *) emplace, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceFront(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.head;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_setChangeEventHandler(alias *self, int event_id, alias##_cehdr_t new_hdr, alias##_cehdr_t *old_hdr) {\
+    alias##_eventcb_t *eventcb;\
+    if (!alias##_validateEventId(self, event_id)) {\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    if (new_hdr == NULL) {\
+        return ESI_EVENTMON_ERR_INVALID_HDR;\
+    }\
+    if (old_hdr != NULL) {\
+        *old_hdr = self->eventcb_repo.repo[event_id].elem.hdr.cehdr;\
+    }\
+    self->eventcb_repo.repo[event_id].elem.hdr.cehdr = new_hdr;\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_unregisterChangeEvent(alias *self, int event_id) {\
+    alias##_eventcb_repo_t_node_t *node;\
+    if (!alias##_validateEventId(self, event_id)) {\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    node = alias##_eventcb_repo_t_getNodeByRepoIndex(&(self->eventcb_repo), event_id);\
+    node->elem.free_flag = 1;\
+    alias##_eventcb_repo_t_delete(&(self->eventcb_repo), node);\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_registerTimeEvent(alias *self, te_t *te, alias##_tehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_emplaceEventcb_te_emplaceWithAssign_assign = alias##_emplaceEventcb_te_assign;\
+    alias##_emplaceEventcb_te_emplaceWithAssign_src = te;\
+    alias##_configEventcbEmplacer(alias##_te_type, (void *) alias##_emplaceEventcb_te_emplaceWithAssign, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceFront(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.head;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_registerTimeEventWithAssign(alias *self, te_t *te, ESI_ASSIGN_FUNC_T(te_t, assign), alias##_tehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_emplaceEventcb_te_emplaceWithAssign_assign = assign;\
+    alias##_emplaceEventcb_te_emplaceWithAssign_src = te;\
+    alias##_configEventcbEmplacer(alias##_te_type, (void *) alias##_emplaceEventcb_te_emplaceWithAssign, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceFront(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.head;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_registerTimeEventWithEmplace(alias *self, ESI_MODIFY_FUNC_T(te_t, emplace), alias##_tehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_configEventcbEmplacer(alias##_te_type, (void *) emplace, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceFront(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.head;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_setTimeEventHandler(alias *self, int event_id, alias##_tehdr_t new_hdr, alias##_tehdr_t *old_hdr) {\
+    alias##_eventcb_t *eventcb;\
+    if (!alias##_validateEventId(self, event_id)) {\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    if (new_hdr == NULL) {\
+        return ESI_EVENTMON_ERR_INVALID_HDR;\
+    }\
+    if (old_hdr != NULL) {\
+        *old_hdr = self->eventcb_repo.repo[event_id].elem.hdr.tehdr;\
+    }\
+    self->eventcb_repo.repo[event_id].elem.hdr.tehdr = new_hdr;\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_unregisterTimeEvent(alias *self, int event_id) {\
+    alias##_eventcb_repo_t_node_t *node;\
+    if (!alias##_validateEventId(self, event_id)) {\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    node = alias##_eventcb_repo_t_getNodeByRepoIndex(&(self->eventcb_repo), event_id);\
+    node->elem.free_flag = 1;\
+    alias##_eventcb_repo_t_delete(&(self->eventcb_repo), node);\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_registerMessageEvent(alias *self, me_t *me, alias##_mehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_emplaceEventcb_me_emplaceWithAssign_assign = alias##_emplaceEventcb_me_assign;\
+    alias##_emplaceEventcb_me_emplaceWithAssign_src = me;\
+    alias##_configEventcbEmplacer(alias##_me_type, (void *) alias##_emplaceEventcb_me_emplaceWithAssign, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceBack(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.tail;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_registerMessageEventWithAssign(alias *self, me_t *me, ESI_ASSIGN_FUNC_T(me_t, assign), alias##_mehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_emplaceEventcb_me_emplaceWithAssign_assign = assign;\
+    alias##_emplaceEventcb_me_emplaceWithAssign_src = me;\
+    alias##_configEventcbEmplacer(alias##_me_type, (void *) alias##_emplaceEventcb_me_emplaceWithAssign, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceBack(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.tail;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_registerMessageEventWithEmplace(alias *self, ESI_MODIFY_FUNC_T(me_t, emplace), alias##_mehdr_t hdr, int *event_id_holder) {\
+    int ret;\
+    alias##_configEventcbEmplacer(alias##_me_type, (void *) emplace, (void *) hdr);\
+    ret = alias##_eventcb_repo_t_emplaceBack(&(self->eventcb_repo), alias##_emplaceEventcb);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (event_id_holder != NULL) {\
+        *event_id_holder = self->eventcb_repo.tail;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_setMessageEventHandler(alias *self, int event_id, alias##_mehdr_t new_hdr, alias##_mehdr_t *old_hdr) {\
+    alias##_eventcb_t *eventcb;\
+    if (!alias##_validateEventId(self, event_id)) {\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    if (new_hdr == NULL) {\
+        return ESI_EVENTMON_ERR_INVALID_HDR;\
+    }\
+    if (old_hdr != NULL) {\
+        *old_hdr = self->eventcb_repo.repo[event_id].elem.hdr.mehdr;\
+    }\
+    self->eventcb_repo.repo[event_id].elem.hdr.mehdr = new_hdr;\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_unregisterMessageEvent(alias *self, int event_id) {\
+    alias##_eventcb_repo_t_node_t *node;\
+    if (!alias##_validateEventId(self, event_id)) {\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    node = alias##_eventcb_repo_t_getNodeByRepoIndex(&(self->eventcb_repo), event_id);\
+    node->elem.free_flag = 1;\
+    alias##_eventcb_repo_t_delete(&(self->eventcb_repo), node);\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_addMessage(alias *self, me_t##_emsg_t *msg) {\
+    int ret;\
+    if (!alias##_validateEventId(self, msg->event_id)) {\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    ret = alias##_emsg_queue_t_insertFront(&(self->emsg_queue), msg);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_addMessageWithAssign(alias *self, me_t##_emsg_t *msg, ESI_ASSIGN_FUNC_T(me_t##_emsg_t, assign)) {\
+    int ret;\
+    if (!alias##_validateEventId(self, msg->event_id)) {\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    ret = alias##_emsg_queue_t_insertFrontWithAssign(&(self->emsg_queue), msg, assign);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_addMessageWithEmplace(alias *self, ESI_MODIFY_FUNC_T(me_t##_emsg_t, emplace)) {\
+    int ret;\
+    ret = alias##_emsg_queue_t_emplaceFront(&(self->emsg_queue), emplace);\
+    if (ret != 0) {\
+        return alias##_repoErr2EventmonErr(ret);\
+    }\
+    if (!alias##_validateEventId(self, self->eventcb_repo.head)) {\
+        alias##_emsg_queue_t_delete(&(self->emsg_queue), alias##_emsg_queue_t_peekFront(&(self->emsg_queue)));\
+        return ESI_EVENTMON_ERR_INVALID_ID;\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+/*To save time, I do a little trick: change events and time events are registered at front*/\
+/*message events are registered at back*/\
+esi_err_t alias##_startLoop(alias *self) {\
+    while (self->stop_flag == 0) {\
+        alias##_iterateChangeEventAndTimeEvent(self);\
+        alias##_iterateMessageQueue(self);\
+    }\
+    return ESI_EVENT_ERR_NONE;\
+}\
+esi_err_t alias##_stopLoop(alias *self) {\
+    self->stop_flag = 1;\
     return ESI_EVENT_ERR_NONE;\
 }

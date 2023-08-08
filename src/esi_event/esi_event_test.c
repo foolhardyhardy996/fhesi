@@ -1,170 +1,136 @@
 #include "esi_event.h"
 
 #include <stdio.h>
-#include <time.h>
+#include <stdint.h>
+#include "esi_str/esi_str.h"
 
-ESI_TRIGGERED_EVENT_TYPE_DECL(my_tevent_t, int);
-ESI_TRIGGERED_EVENT_TYPE_IMPL(my_tevent_t, int);
+ESI_CHANGE_EVENT_DECL(usr_enter_event_t, int, int)
+ESI_CHANGE_EVENT_IMPL(usr_enter_event_t, int, int)
+ESI_TIME_EVENT_DECL(termination_event_t, int, int)
+ESI_TIME_EVENT_IMPL(termination_event_t, int, int)
+typedef char byte256_t[256];
+ESI_EMSG_DECL(byte256_emsg_t, byte256_t)
+ESI_EMSG_EVENT_DECL(echo_event_t, int, byte256_emsg_t)
+ESI_EMSG_EVENT_IMPL(echo_event_t, int, byte256_emsg_t)
 
-ESI_POLLED_EVENT_TYPE_DECL(my_pevent_t, int);
-ESI_POLLED_EVENT_TYPE_IMPL(my_pevent_t, int);
+#define TEST_EVTMON_EVENT_CAP (16)
+#define TEST_EVTMON_EMSG_CAP (16)
+ESI_EVENTMON_DECL(test_evtmon_t, usr_enter_event_t, termination_event_t, echo_event_t, TEST_EVTMON_EVENT_CAP, TEST_EVTMON_EMSG_CAP)
+ESI_EVENTMON_IMPL(test_evtmon_t, usr_enter_event_t, termination_event_t, echo_event_t, TEST_EVTMON_EVENT_CAP, TEST_EVTMON_EMSG_CAP)
 
-ESI_CHRONIC_EVENT_TYPE_DECL(my_cevent_t, int, size_t);
-ESI_CHRONIC_EVENT_TYPE_IMPL(my_cevent_t, int, size_t);
+static test_evtmon_t evtmon;
+static usr_enter_event_t usr_enter_event;
+static termination_event_t termination_event;
+static echo_event_t echo_event;
+static int usr_enter_event_id = -1;
+static int termination_event_id = -1;
+static int echo_event_id = -1;
 
-ESI_EVENT_MONITOR_TYPE_DECL(my_monitor_t, my_tevent_t, 5, my_pevent_t, 5, my_cevent_t, 5, 10);
-ESI_EVENT_MONITOR_TYPE_IMPL(my_monitor_t, my_tevent_t, 5, my_pevent_t, 5, my_cevent_t, 5, 10);
-
-static my_monitor_t monitor;
-
-#define TEVENT_STOP_ID 1
-#define TEVENT_BARK_ID 2
-
-#define PEVENT_FLAGCHECK_ID 3
-
-#define CEVENT_FLAGSET_ID 4
-#define CEVENT_CLOSE_ID 5
-
-static my_tevent_t tevent_stop, tevent_bark;
-static my_pevent_t pevent_flagcheck;
-static my_cevent_t cevent_flagset, cevent_close;
-
-static int event_flag;
-
-#define HANDLER_STOP_ID 1
-#define HANDLER_BARK1_ID 2
-#define HANDLER_BARK2_ID 3
-#define HANDLER_FLAGCHECK_ID 4
-#define HANDLER_FLAGSET_ID 5
-#define HANDLER_CLOSE_ID 6
-
-static esi_event_handler_t handler_stop, handler_bark1, handler_bark2, handler_flagcheck, handler_flagset, handler_close;
-
-static void handle_stop(void *);
-static void handle_stop(void *event_holder) {
-    my_tevent_t *p_event = (my_tevent_t *) event_holder;
-
-    p_event->event_arg++;
-    printf("[INFO]: handling stop for %d times\n", p_event->event_arg);
-    ESI_EVENT_MONITOR_STOP(my_monitor_t, &monitor);
+static int usr_enter_event_poll(usr_enter_event_t *);
+static int usr_enter_event_poll(usr_enter_event_t *self) {
+    uint8_t buffer[128];
+    self->blob++;
+    printf("[NOTICE]: enter whether there is avaliable input (Y/N)\n");
+    scanf("%s", buffer);
+    if (strcmp((const char *) buffer, "y") == 0 || strcmp((const char *) buffer, "Y") == 0) {
+        return 1;
+    } else {
+        printf("[INFO]: you entered \"%s\", which is interpreted as N\n", buffer);
+        return 0;
+    }
 }
 
-static void handle_bark1(void *);
-static void handle_bark1(void *event_holder) {
-    my_tevent_t *p_event = (my_tevent_t *) event_holder;
-
-    p_event->event_arg++;
-    printf("[INFO]: handling bark for %d times, it's bark1\n", p_event->event_arg);
+static void usr_enter_event_notify(usr_enter_event_t *, int *);
+static void usr_enter_event_notify(usr_enter_event_t *self, int *noti) {
+    printf("[INFO]: notify usr_enter_event\n");
+    *noti = self->blob;
 }
 
-static void handle_bark2(void *);
-static void handle_bark2(void *event_holder) {
-    my_tevent_t *p_event = (my_tevent_t *) event_holder;
-
-    p_event->event_arg++;
-    printf("[INFO]: handling bark for %d times, it's bark2\n", p_event->event_arg);
+static void receive_user_input(usr_enter_event_t *, int *);
+static void receive_user_input(usr_enter_event_t *e, int *noti) {
+    byte256_emsg_t emsg;
+    int ret;
+    printf("[INFO]: handling usr_enter_event, notification = %d\n", *noti);
+    scanf("%s", emsg.noti);
+    while (strcmp(emsg.noti, "q") != 0) {
+        emsg.event_id = echo_event_id;
+        ret = test_evtmon_t_addMessage(&evtmon, &emsg);
+        if (ret != 0) {
+            printf("[ERROR]: fail to add message: %s\n", esi_event_strerror(ret));
+        } else {
+            printf("[INFO]: add message: %s\n", emsg.noti);
+        }
+        scanf("%s", emsg.noti);
+    }
+    printf("[INFO]: finish receiving user input\n");
 }
 
-static int poll_flag(my_pevent_t *);
-static int poll_flag(my_pevent_t *p_event) {
-    return event_flag;
+static void termination_event_update(termination_event_t *);
+static void termination_event_update(termination_event_t *self) {
+    self->blob++;
 }
 
-static void handle_flagcheck(void *);
-static void handle_flagcheck(void *event_holder) {
-    my_pevent_t *p_event = (my_pevent_t *) event_holder;
-
-    p_event->event_arg++;
-    event_flag = 0;
-    ESI_EVENT_MONITOR_TRIGGER_EVENT(my_monitor_t, &monitor, &tevent_bark);
-    printf("[INFO]: handling flagcheck for %d times\n", p_event->event_arg);
+static int termination_event_check(termination_event_t *);
+static int termination_event_check(termination_event_t *self) {
+    printf("[INFO]: checking counter, counter = %d\n", self->blob);
+    if (self->blob >= 5) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
-static int update_timeref_for_flagset(size_t *);
-static int update_timeref_for_flagset(size_t *timeref) {
-    struct timespec ts;
-    timespec_get(&ts, TIME_UTC);
-    *timeref = ts.tv_sec;
-    return 0;
+static void termination_event_notify(termination_event_t *, int *);
+static void termination_event_notify(termination_event_t *self, int *noti) {
+    printf("[INFO]: notify termination_event\n");
+    *noti = self->blob;
 }
 
-static int is_timed_out_for_flagset(size_t *, size_t *);
-static int is_timed_out_for_flagset(size_t *timeref1, size_t *timeref2) {
-    return (*timeref1 - *timeref2) >= 2;
+static void terminate(termination_event_t *, int *);
+static void terminate(termination_event_t *e, int *noti) {
+    printf("[INFO]: loop num = %d, it's time to terminate.\n", *noti);
+    test_evtmon_t_stopLoop(&evtmon);
 }
 
-static void handle_flagset(void *);
-static void handle_flagset(void *event_holder) {
-    my_cevent_t *p_event = (my_cevent_t *) event_holder;
+static void echo_event_notify(echo_event_t *, byte256_t *);
+static void echo_event_notify(echo_event_t *self, byte256_t *noti) {
+    printf("[INFO]: notify echo_event\n");
+    self->blob++;
+} 
 
-    p_event->event_arg++;
-    event_flag = 1;
-    ESI_EVENT_MONITOR_TRIGGER_EVENT(my_monitor_t, &monitor, &tevent_bark);
-    printf("[INFO]: handling flagset for %d times\n", p_event->event_arg);
+static void echo(echo_event_t *, byte256_t *);
+static void echo(echo_event_t *e, byte256_t *noti) {
+    printf("[INFO]: echo: %s\n", *noti);
+} 
+
+static void fill_byte256_with_zeros(byte256_t *);
+static void fill_byte256_with_zeros(byte256_t *noti) {
+    memset(*noti, 0, 256);
 }
 
-static int update_timeref_for_close(size_t *);
-static int update_timeref_for_close(size_t *timeref) {
-    struct timespec ts;
-    timespec_get(&ts, TIME_UTC);
-    *timeref = ts.tv_sec;
-    return 0;
-}
-
-static int is_timed_out_for_close(size_t *, size_t *);
-static int is_timed_out_for_close(size_t *timeref1, size_t *timeref2) {
-    return (*timeref1 - *timeref2) >= 15;
-}
-
-static void handle_close(void *);
-static void handle_close(void *event_holder) {
-    my_cevent_t *p_event = (my_cevent_t *) event_holder;
-
-    p_event->event_arg++;
-    ESI_EVENT_MONITOR_TRIGGER_EVENT(my_monitor_t, &monitor, &tevent_stop);
-    printf("[INFO]: handling close for %d times\n", p_event->event_arg);
-}
-
-static int init_test(void);
-static int init_test(void) {
+static void init_test(void);
+static void init_test(void) {
     int counter = 0;
+    test_evtmon_t_init(&evtmon);
+    usr_enter_event_t_init(&usr_enter_event, &counter, usr_enter_event_poll, usr_enter_event_notify);
+    termination_event_t_init(&termination_event, &counter, termination_event_update, termination_event_check, termination_event_notify);
+    echo_event_t_init(&echo_event, &counter, echo_event_notify);
+    printf("[INFO]: after init\n");
+}
 
-    event_flag = 0;
-
-    ESI_TRIGGERED_EVENT_INIT(my_tevent_t, &tevent_stop, TEVENT_STOP_ID, &counter);
-    ESI_TRIGGERED_EVENT_INIT(my_tevent_t, &tevent_bark, TEVENT_BARK_ID, &counter);
-
-    ESI_POLLED_EVENT_INIT(my_pevent_t, &pevent_flagcheck, PEVENT_FLAGCHECK_ID, &counter, poll_flag);
-    
-    ESI_CHRONIC_EVENT_INIT(my_cevent_t, &cevent_flagset, CEVENT_FLAGSET_ID, &counter, update_timeref_for_flagset, is_timed_out_for_flagset);
-    ESI_CHRONIC_EVENT_INIT(my_cevent_t, &cevent_close, CEVENT_CLOSE_ID, &counter, update_timeref_for_close, is_timed_out_for_close);
-
-    esi_event_handler_init(&handler_stop, HANDLER_STOP_ID, TEVENT_STOP_ID, handle_stop);
-    esi_event_handler_init(&handler_bark1, HANDLER_BARK1_ID, TEVENT_BARK_ID, handle_bark1);
-    esi_event_handler_init(&handler_bark2, HANDLER_BARK2_ID, TEVENT_BARK_ID, handle_bark2);
-    esi_event_handler_init(&handler_flagcheck, HANDLER_FLAGCHECK_ID, PEVENT_FLAGCHECK_ID, handle_flagcheck);
-    esi_event_handler_init(&handler_flagset, HANDLER_FLAGSET_ID, CEVENT_FLAGSET_ID, handle_flagset);
-    esi_event_handler_init(&handler_close, HANDLER_CLOSE_ID, CEVENT_CLOSE_ID, handle_close);
-
-    ESI_EVENT_MONITOR_INIT(my_monitor_t, &monitor);
-    ESI_EVENT_MONITOR_REGISTER_POLLED_EVENT(my_monitor_t, &monitor, &pevent_flagcheck);
-    ESI_EVENT_MONITOR_REGISTER_CHRONIC_EVENT(my_monitor_t, &monitor, &cevent_flagset);
-    ESI_EVENT_MONITOR_REGISTER_CHRONIC_EVENT(my_monitor_t, &monitor, &cevent_close);
-
-    ESI_EVENT_MONITOR_REGISTER_EVENT_HANDLER(my_monitor_t, &monitor, &handler_stop);
-    ESI_EVENT_MONITOR_REGISTER_EVENT_HANDLER(my_monitor_t, &monitor, &handler_bark1);
-    ESI_EVENT_MONITOR_REGISTER_EVENT_HANDLER(my_monitor_t, &monitor, &handler_bark2);
-    ESI_EVENT_MONITOR_REGISTER_EVENT_HANDLER(my_monitor_t, &monitor, &handler_flagcheck);
-    ESI_EVENT_MONITOR_REGISTER_EVENT_HANDLER(my_monitor_t, &monitor, &handler_flagset);
-    ESI_EVENT_MONITOR_REGISTER_EVENT_HANDLER(my_monitor_t, &monitor, &handler_close);
-
-    return 0;
+static void register_events(void);
+static void register_events(void) {
+    test_evtmon_t_registerChangeEvent(&evtmon, &usr_enter_event, receive_user_input, &usr_enter_event_id);
+    test_evtmon_t_registerTimeEvent(&evtmon, &termination_event, terminate, &termination_event_id);
+    test_evtmon_t_registerMessageEvent(&evtmon, &echo_event, echo, &echo_event_id);
+    printf("[INFO]: usr_enter_event_id = %d, termination_event_id = %d, echo_event_id = %d\n", usr_enter_event_id, termination_event_id, echo_event_id);
 }
 
 int main(int argc, char *argv[]) {
     init_test();
-    ESI_EVENT_MONITOR_LOOP(my_monitor_t, &monitor);
-    printf("[INFO]: everything is fine\n");
-
+    register_events();
+    test_evtmon_t_startLoop(&evtmon);
+    printf("[INFO]: Everything works well\n");
+    
     return 0;
 }

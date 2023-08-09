@@ -7,16 +7,22 @@
  * 
  * 
  * @author Li Weida
- * @date 2023.07.26
+ * @date 2023.08.09
 */
 
 #include "esi_err/esi_err.h"
 
-#define ESI_COMMEP_DECL(type_alias, unit_t, buffer_t) \
-typedef unit_t type_alias##_unit_t;\
-struct type_alias##_commep {\
+/**
+ * commep is an interface not a class. 
+ * wrap other concrete class or implementation to conform is interface.
+ */
+#define ESI_COMMEP_DECL(alias, unit_t, config_t) \
+typedef unit_t alias##_unit_t;\
+typedef confit_t alias##_config_t;\
+struct alias##_commep {\
     void *blob;\
-    esi_err_t (*send)(buffer_t *, int *);\
-    esi_err_t (*recv)(buffer_t *, int *);\
-    int (*poll)(int);\
-};
+    esi_err_t (*send)(unit_t *, int, config_t *, int *);\
+    esi_err_t (*recv)(unit_t *, int, config_t *, int *);\
+    int (*poll)(confit_t *);\
+};\
+typedef struct alias##_commep alias;

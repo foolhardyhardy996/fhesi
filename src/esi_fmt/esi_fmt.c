@@ -19,7 +19,7 @@ int esi_snprintf(char* buffer, size_t count, const char* format, ...) {
     int ret;
 
     va_start(va, format);
-    ret = snprintf_(buffer, count, format, va);
+    ret = vsnprintf_(buffer, count, format, va);
     va_end(va);
 
     return ret;

@@ -1,66 +1,91 @@
-#pragma once
-
-#include "esi_logdev.h"
+#pragma once 
 
 /**
  * @file esi_logger.h
- * @brief "logger" provide common logging utility functions, which write log 
- * into underlying "logdev"
- * 
- * The main purpose of "logger" is to provide "device-independent" logging 
- * utilities alongwith formatting.
+ * @brief esi_logger provide a logger class which bridges between logging 
+ * interfaces and backend logging device or mechanism.
  * 
  * @author Li Weida
- * @date 2023.05.16
+ * @date 2023.08.09
 */
 
-#define LOGGER_MAX_LOGDEV_NUM (4)
-struct logger {
-    /**< the blob hiding the configuration details or implementation-defined 
-     * details */
-    void *logger_struct;
-    /**< the underlying "log_device"s */
-    struct esi_logdev logdev_array[LOGGER_MAX_LOGDEV_NUM];
-    int logdev_num;
-    char prefix[64];
+#include "esi_err/esi_err.h"
+#include "esi_fmt/esi_fmt.h"
+#include <stdarg.h>
+
+enum esi_logger_err {
+    ESI_LOGGER_ERR_NONE = 0,
+    ESI_LOGGER_ERR_INVALID = 1
 };
 
-/**
- * @brief set the prefix of the following log the logger will write
- * 
- * @return a status code indicating whether it succeeded or what error 
- * occured
-*/
-int esi_logger_set_prefix(struct esi_logger *logger, const char *prefix);
+#define ESI_LOGGER_ERR_MSG {\
+    "esi_logger: ok", /*0*/\
+    "esi_logger: invalid argument" /*1*/\
+}
 
-/**
- * @brief add one more "logdev" 
- * 
- * @return a status code indicating whether it succeeded or what error 
- * occured
-*/
-int esi_logger_add_logdev(struct esi_logger *logger, struct esi_logdev *logdev);
+const char *esi_logger_strerror(int err);
 
-/**
- * @brief just like std printf, but write log to each "logdev" belonging to
- * "logger"
- * 
- * @return a status code indicating whether it succeeded or what error 
- * occured
-*/
-int esi_logger_printf(struct esi_logger *logger, const char *fmt, ...);
+#define ESI_LOGGER_DECL(alias, config_t) \
+typedef config_t alias##_config_t;\
+typedef void (*alias##_write_func_t)(char *, int);\
+typedef int (*alias##_filter_func_t)(config_t *);\
+typedef const char *(*alias##_prefix_func_t)(config_t *);\
+struct alias##_logger {\
+    alias##_write_func_t write;\
+    alias##_filter_func_t filter;\
+    alias##_prefix_func_t prefix;\
+};\
+typedef struct alias##_logger alias;\
+esi_err_t alias##_init(alias *, alias##_write_func_t, alias##_filter_func_t, alias##_prefix_func_t);\
+esi_err_t alias##_logf(alias *, config_t *, const char *, ...);
 
-extern struct esi_logger *default_logger;
-
-/**
- * @brief close previous "default_logger", set "logger" to "default_logger"
-*/
-void esi_set_default_logger(struct esi_logger *logger);
-
-/**
- * @brief just like "esi_logger_printf" but take the "default_logger"
- * 
- * @return a status code indicating whether it succeeded or what error 
- * occured
-*/
-int esi_printf(const char *fmt, ...);
+#define ESI_LOGGER_IMPL(alias, config_t) \
+static int alias##_default_filter(config_t *);\
+static int alias##_default_filter(config_t *foo) {\
+    return 0;\
+}\
+static const char *alias##_default_prefix(config_t *);\
+static const char *alias##_default_prefix(config_t *foo) {\
+    return "";\
+}\
+esi_err_t alias##_init(alias *self, alias##_write_func_t write, alias##_filter_func_t filter, alias##_prefix_func_t prefix) {\
+    if (write == NULL) {\
+        return ESI_LOGGER_ERR_INVALID;\
+    }\
+    self->write = write;\
+    if (filter == NULL) {\
+        self->filter = alias##_default_filter;\
+    } else {\
+        self->filter = filter;\
+    }\
+    if (prefix == NULL) {\
+        self->prefix = alias##_default_prefix;\
+    } else {\
+        self->prefix = prefix;\
+    }\
+    return ESI_LOGGER_ERR_NONE;\
+}\
+esi_err_t alias##_logf(alias *self, config_t *config, const char *fmt, ...) {\
+    va_list va;\
+    int n, m;\
+    char buffer[256];\
+    if (!self->filter(config)) {\
+        n = esi_snprintf(buffer, 256, "%s", self->prefix(config));\
+        if (n < 0) {\
+            n = 0;\
+        }\
+        va_start(va, fmt);\
+        m = esi_vsnprintf(buffer + n, 254-n, fmt, va);\
+        if (m > 0) {\
+            if (buffer[n+m-1] != '\n') {\
+                buffer[n+m] = '\n';\
+                buffer[n+m+1] = 0;\
+            } else {\
+                buffer[n+m] = 0;\
+            }\
+        }\
+        va_end(va);\
+        self->write(buffer, n+m);\
+    }\
+    return ESI_LOGGER_ERR_NONE;\
+}
